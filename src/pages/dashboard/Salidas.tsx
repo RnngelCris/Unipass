@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DoorClosed, Search, Calendar } from 'lucide-react';
+import { DashboardProps } from '../../types/dashboard';
 
 interface SalidaItem {
   estudiante: string;
@@ -10,7 +11,7 @@ interface SalidaItem {
   estado: 'pendiente' | 'aprobada' | 'rechazada';
 }
 
-const Salidas = () => {
+const Salidas: React.FC<DashboardProps> = ({ level, gender }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('todos');

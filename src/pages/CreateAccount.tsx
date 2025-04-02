@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, User } from 'lucide-react';
+import { GraduationCap, User, Store } from 'lucide-react';
 import UniversityLogo from '../components/UniversityLogo';
 import UserService from '../services/UserService';
 import OtpService from '../services/OtpService';
-import { UserData } from '../types/user';
+import { UserData, UserDataResponse } from '../types/user';
 import ErrorMessage from '../components/ErrorMessage';
 import UserInfoPreview from '../components/UserInfoPreview';
+import logoMovil from '../assets/images/LogoMovil.png';
 
 const CreateAccount = () => {
   const navigate = useNavigate();
@@ -20,6 +21,24 @@ const CreateAccount = () => {
     confirmPassword: ''
   });
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [isStudent, setIsStudent] = useState(false);
+  const [isVigilancia, setIsVigilancia] = useState(false);
+  const [isNonPreceptorEmployee, setIsNonPreceptorEmployee] = useState(false);
+
+  const isButtonDisabled = () => {
+    switch (step) {
+      case 1:
+        return !formData.matricula || formData.matricula.length === 0;
+      case 2:
+        return formData.verificationCode.some(code => !code);
+      case 3:
+        return !userData;
+      case 4:
+        return !formData.password || !formData.confirmPassword || formData.password.length < 8;
+      default:
+        return false;
+    }
+  };
 
   const handleSubmitMatricula = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,23 +46,60 @@ const CreateAccount = () => {
     setError(null);
 
     try {
-      // Validar formato de matrícula
-      if (!/^\d{6}$/.test(formData.matricula)) {
-        throw new Error('La matrícula debe contener 6 dígitos');
+      if (formData.matricula.length === 0) {
+        throw new Error('La matrícula es requerida');
       }
 
-      // Obtener datos del usuario
-      const data = await UserService.getDatosUser(formData.matricula);
-      setUserData(data);
+      const response = await UserService.getDatosUser(formData.matricula);
+      const responseData = response.Data || response.data;
+      
+      if (!responseData) {
+        throw new Error('No se encontraron datos del usuario');
+      }
 
-      // Obtener el correo institucional
-      const email = data.student?.[0]?.CORREO_INSTITUCIONAL;
+      // Validar si es un empleado y verificar su ID_DEPARATAMENTO
+      if (responseData.type === 'EMPLEADO') {
+        const employee = responseData.employee?.[0];
+        if (!employee) {
+          throw new Error('No se encontraron datos del empleado');
+        }
+
+        const preceptorIds = [315, 316, 317, 318];
+        if (!preceptorIds.includes(employee.ID_DEPARATAMENTO)) {
+          setIsNonPreceptorEmployee(true);
+          return;
+        }
+      }
+      
+      // Check if user is a student or vigilancia
+      if (responseData.type === 'ALUMNO' || responseData.type === 'VIGILANCIA') {
+        setIsStudent(responseData.type === 'ALUMNO');
+        setIsVigilancia(responseData.type === 'VIGILANCIA');
+        return;
+      }
+
+      const userData: UserData = {
+        student: responseData.student,
+        type: responseData.type,
+        Tutor: responseData.Tutor,
+        work: responseData.work,
+        employee: responseData.employee
+      };
+
+      setUserData(userData);
+
+      // Obtener el correo institucional dependiendo del tipo de usuario
+      let email: string | undefined;
+      if (responseData.type === 'EMPLEADO' && responseData.employee?.[0]) {
+        email = responseData.employee[0].EMAIl_INSTITUCIONAL;
+      } else if (responseData.student?.[0]) {
+        email = responseData.student[0].CORREO_INSTITUCIONAL;
+      }
 
       if (!email) {
         throw new Error('No se encontró el correo institucional asociado a esta matrícula');
       }
 
-      // Enviar OTP
       await OtpService.sendOTP(email);
       setStep(2);
     } catch (error: any) {
@@ -83,7 +139,6 @@ const CreateAccount = () => {
   };
 
   const handleVerificationCodeChange = (index: number, value: string) => {
-    // Solo permitir números
     if (!/^\d*$/.test(value)) return;
 
     const newCode = [...formData.verificationCode];
@@ -94,7 +149,6 @@ const CreateAccount = () => {
       verificationCode: newCode
     });
 
-    // Mover al siguiente input
     if (value && index < 3) {
       const nextInput = document.getElementById(`code-${index + 1}`);
       nextInput?.focus();
@@ -109,14 +163,13 @@ const CreateAccount = () => {
   };
 
   const handleContinue = () => {
-    if (!userData) {
+    if (!userData || !userData.student || userData.student.length === 0) {
       setError('No se encontraron datos del usuario');
       return;
     }
 
     const student = userData.student[0];
     
-    // Validar si es alumno interno
     if (userData.type === 'ALUMNO' && student.RESIDENCIA !== 'INTERNO') {
       setError('Solo los alumnos internos pueden crear una cuenta');
       return;
@@ -131,7 +184,7 @@ const CreateAccount = () => {
     setError(null);
 
     try {
-      if (!userData?.student?.[0]) {
+      if (!userData) {
         throw new Error('Datos de usuario no encontrados');
       }
 
@@ -143,23 +196,45 @@ const CreateAccount = () => {
         throw new Error('La contraseña debe tener al menos 8 caracteres');
       }
 
-      const student = userData.student[0];
+      let registerData;
       
-      await UserService.registerUser({
-        Matricula: formData.matricula,
-        Contraseña: formData.password,
-        Correo: student.CORREO_INSTITUCIONAL,
-        Nombre: student.NOMBRE,
-        Apellidos: student.APELLIDOS,
-        TipoUser: userData.type,
-        Sexo: student.SEXO,
-        FechaNacimiento: student.FECHA_NACIMIENTO,
-        Celular: student.CELULAR,
-        StatusActividad: 1,
-        Dormitorio: student.RESIDENCIA === 'INTERNO' ? 1 : 0
-      });
+      if (userData.type === 'EMPLEADO' && userData.employee?.[0]) {
+        const employee = userData.employee[0];
+        registerData = {
+          Matricula: formData.matricula,
+          Contraseña: formData.password,
+          Correo: employee.EMAIl_INSTITUCIONAL,
+          Nombre: employee.NOMBRES,
+          Apellidos: employee.APELLIDOS,
+          TipoUser: userData.type,
+          NivelAcademico: "EMPLEADO",
+          Sexo: employee.SEXO,
+          FechaNacimiento: employee.FECHA_NACIMIENTO || new Date().toISOString(),
+          Celular: employee.CELULAR || "",
+          StatusActividad: 1,
+          Dormitorio: 5
+        };
+      } else if (userData.student?.[0]) {
+        const student = userData.student[0];
+        registerData = {
+          Matricula: formData.matricula,
+          Contraseña: formData.password,
+          Correo: student.CORREO_INSTITUCIONAL,
+          Nombre: student.NOMBRE,
+          Apellidos: student.APELLIDOS,
+          TipoUser: userData.type,
+          NivelAcademico: student.NIVEL_EDUCATIVO,
+          Sexo: student.SEXO,
+          FechaNacimiento: student.FECHA_NACIMIENTO,
+          Celular: student.CELULAR,
+          StatusActividad: 1,
+          Dormitorio: student.RESIDENCIA === 'INTERNO' ? 1 : 0
+        };
+      } else {
+        throw new Error('No se encontraron datos del usuario');
+      }
 
-      // Redirigir al login
+      await UserService.registerUser(registerData);
       navigate('/');
     } catch (error: any) {
       console.error('Error:', error);
@@ -169,9 +244,80 @@ const CreateAccount = () => {
     }
   };
 
+  if (isStudent || isVigilancia) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[384px] w-full bg-white p-8 rounded-lg shadow-md">
+          <div className="flex flex-col items-center text-center">
+            <UniversityLogo />
+            
+            <img 
+              src={logoMovil} 
+              alt="UNIPASS Mobile" 
+              className="w-24 h-24 mb-6"
+            />
+            
+            <h2 className="text-2xl font-bold text-[#003B5C] mb-4">
+              ¡Descarga nuestra app!
+            </h2>
+            
+            <p className="text-gray-600 mb-6">
+              Para aprovechar al máximo los servicios {isStudent ? 'estudiantiles' : 'de vigilancia'}, descarga nuestra aplicación móvil UNIPASS
+            </p>
+
+            <a
+              href="https://play.google.com/store/apps/details?id=com.irvingdesarrolla.UNIPASS&pcampaignid=web_share"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center space-x-2 bg-[#F4C430] text-gray-900 py-3 px-6 rounded-lg hover:bg-[#E3B420] transition-colors mb-6 w-full"
+            >
+              <Store className="h-5 w-5" />
+              <span>Descargar en Play Store</span>
+            </a>
+
+            <Link 
+              to="/" 
+              className="text-sm text-[#06426a] hover:text-[#06426a]/80"
+            >
+              Volver a Iniciar sesión
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isNonPreceptorEmployee) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[384px] w-full bg-white p-8 rounded-lg shadow-md">
+          <div className="flex flex-col items-center text-center">
+            <UniversityLogo />
+            
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mt-6 mb-8">
+              <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+                Acceso Restringido
+              </h2>
+              <p className="text-yellow-700">
+                Lo sentimos, esta sección es solo para preceptores y coordinación. Por favor, utilice la sección correspondiente para su departamento.
+              </p>
+            </div>
+
+            <Link 
+              to="/" 
+              className="text-sm text-[#06426a] hover:text-[#06426a]/80"
+            >
+              Volver a Iniciar sesión
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-[384px] bg-white p-8 rounded-lg shadow-md">
+      <div className="max-w-[384px] w-full bg-white p-8 rounded-lg shadow-md">
         <div className="flex flex-col items-center">
           <UniversityLogo />
           
@@ -192,7 +338,7 @@ const CreateAccount = () => {
               <form onSubmit={handleSubmitMatricula} className="w-full">
                 <div className="mb-8">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Matrícula de estudiante o empleado
+                    Matrícula del empleado
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -205,6 +351,7 @@ const CreateAccount = () => {
                       value={formData.matricula}
                       onChange={(e) => setFormData({ ...formData, matricula: e.target.value.replace(/\D/g, '') })}
                       maxLength={6}
+                      disabled={isLoading}
                       required
                     />
                   </div>
@@ -212,10 +359,35 @@ const CreateAccount = () => {
 
                 <button
                   type="submit"
-                  disabled={isLoading || formData.matricula.length !== 6}
-                  className="w-full bg-[#F4C430] text-gray-900 py-2.5 px-4 rounded-md hover:bg-[#E3B420] transition duration-200 mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || isButtonDisabled()}
+                  className={`w-full py-2.5 px-4 rounded-md transition duration-200 mb-6 ${
+                    isLoading || isButtonDisabled()
+                      ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                      : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
+                  }`}
                 >
-                  {isLoading ? 'Enviando...' : 'Enviar código de verificación'}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Enviando...
+                    </div>
+                  ) : (
+                    'Enviar código de verificación'
+                  )}
                 </button>
               </form>
             </>
@@ -241,7 +413,7 @@ const CreateAccount = () => {
                         value={formData.verificationCode[index]}
                         onChange={(e) => handleVerificationCodeChange(index, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
-                        required
+                        disabled={isLoading}
                       />
                     ))}
                   </div>
@@ -249,10 +421,35 @@ const CreateAccount = () => {
 
                 <button
                   type="submit"
-                  disabled={isLoading || formData.verificationCode.some(code => !code)}
-                  className="w-full bg-[#F4C430] text-gray-900 py-2.5 px-4 rounded-md hover:bg-[#E3B420] transition duration-200 mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || isButtonDisabled()}
+                  className={`w-full py-2.5 px-4 rounded-md transition duration-200 mb-6 ${
+                    isLoading || isButtonDisabled()
+                      ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                      : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
+                  }`}
                 >
-                  {isLoading ? 'Verificando...' : 'Verificar código'}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Verificando...
+                    </div>
+                  ) : (
+                    'Verificar código'
+                  )}
                 </button>
               </form>
             </>
@@ -269,9 +466,35 @@ const CreateAccount = () => {
 
               <button
                 onClick={handleContinue}
-                className="w-full bg-[#F4C430] text-gray-900 py-2.5 px-4 rounded-md hover:bg-[#E3B420] transition duration-200 mt-8 mb-6"
+                disabled={isLoading || isButtonDisabled()}
+                className={`w-full py-2.5 px-4 rounded-md transition duration-200 mt-8 mb-6 ${
+                  isLoading || isButtonDisabled()
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                    : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
+                }`}
               >
-                Continuar
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Procesando...
+                  </div>
+                ) : (
+                  'Continuar'
+                )}
               </button>
             </>
           )}
@@ -306,6 +529,7 @@ const CreateAccount = () => {
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         minLength={8}
+                        disabled={isLoading}
                         required
                       />
                       <p className="mt-1 text-xs text-gray-500">
@@ -322,6 +546,7 @@ const CreateAccount = () => {
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                         minLength={8}
+                        disabled={isLoading}
                         required
                       />
                     </div>
@@ -329,10 +554,35 @@ const CreateAccount = () => {
 
                   <button
                     type="submit"
-                    disabled={isLoading || !formData.password || !formData.confirmPassword}
-                    className="w-full bg-[#F4C430] text-gray-900 py-2.5 px-4 rounded-md hover:bg-[#E3B420] transition duration-200 mt-8 mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading || isButtonDisabled()}
+                    className={`w-full py-2.5 px-4 rounded-md transition duration-200 mt-8 mb-6 ${
+                      isLoading || isButtonDisabled()
+                        ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                        : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
+                    }`}
                   >
-                    {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
+                    {isLoading ? (
+                      <div className="flex items-center justify-center">
+                        <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Creando cuenta...
+                      </div>
+                    ) : (
+                      'Crear cuenta'
+                    )}
                   </button>
                 </form>
               </div>

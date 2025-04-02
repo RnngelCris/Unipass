@@ -144,6 +144,19 @@ const RecoverPassword = () => {
     }
   };
 
+  const isButtonDisabled = () => {
+    switch (step) {
+      case 1:
+        return !formData.matricula;
+      case 2:
+        return formData.verificationCode.some(code => !code);
+      case 3:
+        return !formData.newPassword || !formData.confirmPassword || formData.newPassword.length < 8;
+      default:
+        return false;
+    }
+  };
+
   const renderStep = () => {
     const errorMessage = error && (
       <div className="text-red-500 text-sm text-center mb-4">
@@ -177,7 +190,8 @@ const RecoverPassword = () => {
                     placeholder="Ejemplo: 221208"
                     className="pl-10 block w-full rounded-md border border-gray-300 shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#06426a] focus:border-transparent"
                     value={formData.matricula}
-                    onChange={(e) => setFormData({ ...formData, matricula: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, matricula: e.target.value.replace(/\D/g, '') })}
+                    maxLength={6}
                     disabled={isLoading}
                   />
                 </div>
@@ -185,10 +199,10 @@ const RecoverPassword = () => {
 
               <button
                 type="submit"
-                disabled={isLoading || !formData.matricula}
+                disabled={isLoading || isButtonDisabled()}
                 className={`w-full py-2.5 px-4 rounded-md transition duration-200 mb-6 ${
-                  isLoading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                  isLoading || isButtonDisabled()
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
                     : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
                 }`}
               >
@@ -250,14 +264,35 @@ const RecoverPassword = () => {
 
               <button
                 type="submit"
-                disabled={isLoading || formData.verificationCode.some(code => !code)}
+                disabled={isLoading || isButtonDisabled()}
                 className={`w-full py-2.5 px-4 rounded-md transition duration-200 mb-4 ${
-                  isLoading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                  isLoading || isButtonDisabled()
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
                     : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
                 }`}
               >
-                {isLoading ? 'Verificando...' : 'Verificar código'}
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Verificando...
+                  </div>
+                ) : (
+                  'Verificar código'
+                )}
               </button>
 
               <button
@@ -294,6 +329,7 @@ const RecoverPassword = () => {
                       className="block w-full rounded-md border border-gray-300 shadow-sm py-2.5 px-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#06426a] focus:border-transparent"
                       value={formData.newPassword}
                       onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
@@ -319,6 +355,7 @@ const RecoverPassword = () => {
                       className="block w-full rounded-md border border-gray-300 shadow-sm py-2.5 px-3 pr-10 focus:outline-none focus:ring-2 focus:ring-[#06426a] focus:border-transparent"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
@@ -337,9 +374,35 @@ const RecoverPassword = () => {
 
               <button
                 type="submit"
-                className="w-full bg-[#F4C430] text-gray-900 py-2.5 px-4 rounded-md hover:bg-[#E3B420] transition duration-200 mb-6"
+                disabled={isLoading || isButtonDisabled()}
+                className={`w-full py-2.5 px-4 rounded-md transition duration-200 mb-6 ${
+                  isLoading || isButtonDisabled()
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                    : 'bg-[#F4C430] hover:bg-[#E3B420] text-gray-900'
+                }`}
               >
-                Actualizar contraseña 
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Actualizando...
+                  </div>
+                ) : (
+                  'Actualizar contraseña'
+                )}
               </button>
             </form>
           </>

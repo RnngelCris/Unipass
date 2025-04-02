@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Eye, PenSquare, Trash2, Users, Calendar, AlertCircle, Check, MessageCircle, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DashboardProps } from '../../types/dashboard';
 
 interface Aviso {
   id: number;
@@ -12,7 +13,7 @@ interface Aviso {
   autor: string;
 }
 
-const Avisos = () => {
+const Avisos: React.FC<DashboardProps> = ({ level, gender }) => {
   const [selectedAviso, setSelectedAviso] = useState<Aviso | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);

@@ -1,6 +1,35 @@
 export class AuthService {
   private baseUrl = 'https://unipass.isdapps.uk';
 
+  async authenticateUser(matricula: string, correo: string, contrasena: string): Promise<Record<string, any>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          Matricula: matricula,
+          Correo: correo,
+          Contraseña: contrasena,
+        }),
+      });
+
+      if (response.status === 200) {
+        const userData = await response.json();
+        // Store the user ID in localStorage
+        localStorage.setItem('userId', userData.user.IdLogin.toString());
+        return userData;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Authentication failed: ${errorText}`);
+      }
+    } catch (error: any) {
+      console.error('Error in authenticateUser:', error);
+      throw new Error(`Failed to authenticate user: ${error.message}`);
+    }
+  }
+
   async updatePassword(correo: string, newPassword: string): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/password/${correo}`, {
@@ -41,4 +70,4 @@ export class AuthService {
   }
 }
 
-export default new AuthService(); 
+export default new AuthService();

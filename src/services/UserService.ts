@@ -1,10 +1,10 @@
-import { UserData } from '../types/user';
+import { UserData, UserDataResponse } from '../types/user';
 
 export class UserService {
   private API_URL = 'https://ulvdb.isdapps.uk/api';
   private UNIPASS_URL = 'https://unipass.isdapps.uk';
 
-  async getDatosUser(matricula: string): Promise<UserData> {
+  async getDatosUser(matricula: string): Promise<UserDataResponse> {
     try {
       console.log('Solicitando datos para matrícula:', matricula);
       const response = await fetch(`${this.API_URL}/datos/${matricula}`);
@@ -28,21 +28,21 @@ export class UserService {
       }
       
       const text = await response.text();
-      let data;
+      console.log('Respuesta del servidor:', text);
       
       try {
-        data = JSON.parse(text);
+        const data = JSON.parse(text);
+        if (!data) {
+          console.error('No se encontraron datos en la respuesta:', { matricula });
+          throw new Error('Error al procesar la respuesta del servidor');
+        }
+        return data as UserDataResponse;
       } catch (e) {
         console.error('Error parsing response:', text);
         throw new Error('Error al procesar la respuesta del servidor');
       }
-      
-      if (!data.Data) {
-        throw new Error('Formato de respuesta inválido');
-      }
-
-      return data.Data;
     } catch (error: any) {
+      console.error('Error en getDatosUser:', error);
       if (error.message === 'Failed to fetch') {
         throw new Error('Error de conexión. Por favor, verifica tu conexión a internet.');
       }
@@ -103,15 +103,20 @@ export class UserService {
       if (tipoUsuario === 'ALUMNO') {
         // Obtener los datos actualizados del usuario
         const datosUsuario = await this.getDatosUser(userData.Matricula);
+        const responseData = datosUsuario.Data || datosUsuario.data;
         
+        if (!responseData || !responseData.student || responseData.student.length === 0) {
+          throw new Error('No se encontraron datos del estudiante');
+        }
+
         console.log('Datos para obtener dormitorio:', {
-          nivelEducativo: datosUsuario.student[0].NIVEL_EDUCATIVO,
-          sexo: datosUsuario.student[0].SEXO
+          nivelEducativo: responseData.student[0].NIVEL_EDUCATIVO,
+          sexo: responseData.student[0].SEXO
         });
         
         const dormitorioAsignado = await this.obtenerDormitorio(
-          datosUsuario.student[0].NIVEL_EDUCATIVO,
-          datosUsuario.student[0].SEXO
+          responseData.student[0].NIVEL_EDUCATIVO,
+          responseData.student[0].SEXO
         );
         
         console.log('Dormitorio asignado:', dormitorioAsignado);

@@ -21,6 +21,7 @@ import {
   Filler
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import { DashboardProps } from '../../types/dashboard';
 
 ChartJS.register(
   CategoryScale,
@@ -236,7 +237,7 @@ const studentsDB: Student[] = [
   }
 ];
 
-const Expediente = () => {
+const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchResults, setSearchResults] = useState<Student[]>([]);

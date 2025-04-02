@@ -5,6 +5,7 @@ import {
   AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   User, GraduationCap, MapPin
 } from 'lucide-react';
+import { DashboardProps } from '../../types/dashboard';
 
 interface Document {
   id: string;
@@ -30,7 +31,7 @@ const documentIcons = {
   salida: <DoorOpen size={32} className="text-yellow-600" />
 };
 
-const Documentos = () => {
+const Documentos: React.FC<DashboardProps> = ({ level, gender }) => {
   const [documents, setDocuments] = useState<Document[]>([
     {
       id: '1',

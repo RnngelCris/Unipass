@@ -42,9 +42,41 @@ export interface Work {
   'JEFE DEPARTAMENTO': string;
 }
 
+export interface Employee {
+  MATRICULA: number;
+  NOMBRES: string;
+  APELLIDOS: string;
+  SEXO: string;
+  DEPARTAMENTO: string;
+  EMAIl_INSTITUCIONAL: string;
+  ID_DEPARATAMENTO: number;
+  CAMPUS?: string;
+  FECHA_NACIMIENTO?: string;
+  EDAD?: number;
+  CELULAR?: string;
+}
+
+export interface UserDataResponse {
+  Data?: {
+    student?: Student[];
+    type: string;
+    Tutor?: Tutor[];
+    work?: Work[];
+    employee?: Employee[];
+  };
+  data?: {
+    student?: Student[];
+    type: string;
+    Tutor?: Tutor[];
+    work?: Work[];
+    employee?: Employee[];
+  };
+}
+
 export interface UserData {
-  student: Student[];
+  student?: Student[];
   type: string;
-  Tutor: Tutor[];
-  work: Work[];
+  Tutor?: Tutor[];
+  work?: Work[];
+  employee?: Employee[];
 }

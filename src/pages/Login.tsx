@@ -3,7 +3,7 @@ import UniversityLogo from '../components/UniversityLogo';
 import LoginForm from '../components/LoginForm';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (type: string, level?: string, gender?: string) => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
