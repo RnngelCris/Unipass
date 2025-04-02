@@ -24,6 +24,13 @@ interface Document {
   previewUrl?: string;
 }
 
+interface Student {
+  id: string;
+  dormitory: string;
+}
+
+type DocumentStatus = 'pending' | 'approved' | 'rejected';
+
 const documentIcons = {
   reglamento: <ScrollText size={32} className="text-blue-600" />,
   dormitorio: <Home size={32} className="text-green-600" />,
@@ -31,7 +38,7 @@ const documentIcons = {
   salida: <DoorOpen size={32} className="text-yellow-600" />
 };
 
-const Documentos: React.FC<DashboardProps> = ({ level, gender }) => {
+const Documentos: React.FC<DashboardProps> = () => {
   const [documents, setDocuments] = useState<Document[]>([
     {
       id: '1',
@@ -105,7 +112,7 @@ const Documentos: React.FC<DashboardProps> = ({ level, gender }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const totalPages = 3;
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -117,13 +124,13 @@ const Documentos: React.FC<DashboardProps> = ({ level, gender }) => {
     { label: 'Tasa de Aprobación', value: '85%', change: '+3%' }
   ];
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
+  const getStatusBadge = (status: DocumentStatus) => {
+    const styles: Record<DocumentStatus, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800'
     };
-    const icons = {
+    const icons: Record<DocumentStatus, JSX.Element> = {
       pending: <AlertCircle size={16} className="mr-1" />,
       approved: <Check size={16} className="mr-1" />,
       rejected: <X size={16} className="mr-1" />

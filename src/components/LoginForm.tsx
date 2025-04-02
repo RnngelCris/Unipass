@@ -6,6 +6,7 @@ import authService from '../services/AuthService';
 import userService from '../services/UserService';
 import UniversityLogo from './UniversityLogo';
 import logoMovil from '../assets/images/LogoMovil.png';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginFormProps {
   onLogin: (type: string, level?: string, gender?: string) => void;
@@ -13,6 +14,7 @@ interface LoginFormProps {
 
 const LoginForm = ({ onLogin }: LoginFormProps) => {
   const navigate = useNavigate();
+  const { setUserData } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,9 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
 
   const saveUserInfo = async (userData: any) => {
     try {
+      // Guardar datos en el contexto de autenticación
+      setUserData(userData);
+      
       // Normalizar la estructura de datos
       const data = userData.Data || userData.data;
       

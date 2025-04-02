@@ -13,7 +13,9 @@ interface Aviso {
   autor: string;
 }
 
-const Avisos: React.FC<DashboardProps> = ({ level, gender }) => {
+type PrioridadAviso = 'Normal' | 'High' | 'Urgent';
+
+const Avisos: React.FC<DashboardProps> = () => {
   const [selectedAviso, setSelectedAviso] = useState<Aviso | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -43,7 +45,7 @@ const Avisos: React.FC<DashboardProps> = ({ level, gender }) => {
   const [formData, setFormData] = useState({
     titulo: '',
     contenido: '',
-    prioridad: 'Normal',
+    prioridad: 'Normal' as PrioridadAviso,
     destinatarios: 'Todos los dormitorios',
     fechaExpiracion: ''
   });
@@ -85,15 +87,13 @@ const Avisos: React.FC<DashboardProps> = ({ level, gender }) => {
     });
   };
 
-  const getPrioridadStyle = (prioridad: string) => {
-    switch (prioridad) {
-      case 'High':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Urgent':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-blue-100 text-blue-800';
-    }
+  const getPrioridadStyle = (prioridad: PrioridadAviso) => {
+    const styles: Record<PrioridadAviso, string> = {
+      High: 'bg-yellow-100 text-yellow-800',
+      Urgent: 'bg-red-100 text-red-800',
+      Normal: 'bg-blue-100 text-blue-800'
+    };
+    return styles[prioridad];
   };
 
   const handleEdit = (aviso: Aviso) => {
@@ -267,7 +267,7 @@ const Avisos: React.FC<DashboardProps> = ({ level, gender }) => {
               <select
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 value={formData.prioridad}
-                onChange={(e) => setFormData({ ...formData, prioridad: e.target.value as 'Normal' | 'High' | 'Urgent' })}
+                onChange={(e) => setFormData({ ...formData, prioridad: e.target.value as PrioridadAviso })}
               >
                 <option value="Normal">Normal</option>
                 <option value="High">Alta</option>

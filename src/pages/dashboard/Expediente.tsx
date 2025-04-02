@@ -42,9 +42,12 @@ const tabs = [
   { id: 'notes', label: 'Notas', icon: MessageSquare }
 ];
 
+type StatusType = 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
+type BehaviorNoteType = 'positive' | 'negative';
+
 interface BehaviorNote {
   id: number;
-  type: 'positive' | 'negative';
+  type: BehaviorNoteType;
   content: string;
   author: string;
   date: string;
@@ -237,7 +240,7 @@ const studentsDB: Student[] = [
   }
 ];
 
-const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
+const Expediente: React.FC<DashboardProps> = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
@@ -293,15 +296,15 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
+  const getStatusBadge = (status: StatusType) => {
+    const styles: Record<StatusType, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
       active: 'bg-green-100 text-green-800',
       inactive: 'bg-gray-100 text-gray-800'
     };
-    return styles[status] || styles.pending;
+    return styles[status];
   };
 
   const handleAddNote = () => {
@@ -309,7 +312,8 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
 
     const note: BehaviorNote = {
       id: selectedStudent.behaviorNotes.length + 1,
-      ...newNote,
+      type: newNote.type as BehaviorNoteType,
+      content: newNote.content,
       author: 'Preceptor Actual',
       date: format(new Date(), 'yyyy-MM-dd'),
       time: format(new Date(), 'HH:mm')
@@ -346,7 +350,7 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
                       {formatDate(activity.date)}
                     </span>
                     {activity.status && (
-                      <span className={`text-sm px-2 py-1 rounded-full ${getStatusBadge(activity.status)}`}>
+                      <span className={`text-sm px-2 py-1 rounded-full ${getStatusBadge(activity.status as StatusType)}`}>
                         {activity.status.charAt(0).toUpperCase() + activity.status.slice(1)}
                       </span>
                     )}
@@ -582,7 +586,7 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
                         {formatDate(activity.date)}
                       </span>
                       {activity.status && (
-                        <span className={`text-sm px-2 py-1 rounded-full ${getStatusBadge(activity.status)}`}>
+                        <span className={`text-sm px-2 py-1 rounded-full ${getStatusBadge(activity.status as StatusType)}`}>
                           {activity.status.charAt(0).toUpperCase() + activity.status.slice(1)}
                         </span>
                       )}
@@ -724,7 +728,7 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
                       <MapPin className="h-4 w-4 mr-1" />
                       {selectedStudent.dormitory}
                     </span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(selectedStudent.status)}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(selectedStudent.status as StatusType)}`}>
                       {selectedStudent.status === 'active' ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
@@ -780,7 +784,7 @@ const Expediente: React.FC<DashboardProps> = ({ level, gender }) => {
                 <select
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                   value={newNote.type}
-                  onChange={(e) => setNewNote({ ...newNote, type: e.target.value as 'positive' | 'negative' })}
+                  onChange={(e) => setNewNote({ ...newNote, type: e.target.value as BehaviorNoteType })}
                 >
                   <option value="positive">Positiva</option>
                   <option value="negative">Negativa</option>

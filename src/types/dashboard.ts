@@ -1,4 +1,4 @@
 export interface DashboardProps {
-  level: string;
-  gender: string;
+  level?: string;
+  gender?: string;
 } 

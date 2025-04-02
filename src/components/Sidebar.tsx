@@ -1,17 +1,49 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { DoorClosed, FileText, Bell, FolderOpen } from 'lucide-react';
+import { DoorClosed, FileText, Bell, FolderOpen, Users, ClipboardList } from 'lucide-react';
 import logoMenu from '../assets/images/Logo-menu.png';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
   const location = useLocation();
+  const { userData } = useAuth();
+  const tipoUser = localStorage.getItem('tipoUser');
+  const nivelAcademico = localStorage.getItem('nivelAcademico');
+  const sexo = userData?.Data?.employee?.[0]?.SEXO || userData?.data?.employee?.[0]?.SEXO;
 
-  const menuItems = [
-    { icon: DoorClosed, text: 'Salidas', path: '/dashboard/salidas' },
-    { icon: FileText, text: 'Documentos', path: '/dashboard/documentos' },
-    { icon: Bell, text: 'Avisos', path: '/dashboard/avisos' },
-    { icon: FolderOpen, text: 'Expediente', path: '/dashboard/expediente' }
-  ];
+  const getBasePath = () => {
+    if (tipoUser === 'PRECEPTOR' && nivelAcademico && sexo) {
+      return `/dashboard/${nivelAcademico.toLowerCase()}-${sexo.toLowerCase()}`;
+    }
+    return '/dashboard';
+  };
+
+  const getMenuItems = () => {
+    const basePath = getBasePath();
+    const baseMenuItems = [
+      { icon: DoorClosed, text: 'Salidas', path: `${basePath}/salidas` },
+      { icon: Bell, text: 'Avisos', path: `${basePath}/avisos` },
+    ];
+
+    switch (tipoUser) {
+      case 'PRECEPTOR':
+        return [
+          ...baseMenuItems,
+          { icon: FileText, text: 'Documentos', path: `${basePath}/documentos` },
+          { icon: FolderOpen, text: 'Expediente', path: `${basePath}/expediente` },
+        ];
+      case 'ADMIN':
+        return [
+          { icon: Bell, text: 'Avisos', path: `${basePath}/avisos` },
+          { icon: Users, text: 'Gestión de Usuarios', path: `${basePath}/usuarios` },
+          { icon: ClipboardList, text: 'Reportes', path: `${basePath}/reportes` },
+        ];
+      default:
+        return baseMenuItems;
+    }
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <div className="w-64 bg-[#003B5C] min-h-screen p-4">

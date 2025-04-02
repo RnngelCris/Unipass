@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { UserCircle, Moon, Sun, Settings, LogOut, HelpCircle, Bell, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserCircle, ChevronDown, Moon, Sun, Settings, Bell, HelpCircle, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onLogout: () => void;
@@ -10,7 +11,27 @@ const Header = ({ onLogout }: HeaderProps) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const email = 'admin@ulv.edu.mx';
+  const { userData } = useAuth();
+
+  const getUserInfo = () => {
+    const data = userData?.Data || userData?.data;
+    if (data?.employee && data.employee.length > 0) {
+      const employee = data.employee[0];
+      const primerNombre = employee.NOMBRES.split(' ')[0];
+      return {
+        name: `${primerNombre} ${employee.APELLIDOS}`,
+        fullName: `${employee.NOMBRES} ${employee.APELLIDOS}`,
+        email: employee.EMAIl_INSTITUCIONAL || 'Sin correo registrado'
+      };
+    }
+    return {
+      name: 'Usuario',
+      fullName: 'Usuario',
+      email: 'Sin correo registrado'
+    };
+  };
+
+  const userInfo = getUserInfo();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,8 +65,8 @@ const Header = ({ onLogout }: HeaderProps) => {
             )}
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-sm font-medium text-gray-900">Administrador</span>
-            <span className="text-xs text-gray-500">{email}</span>
+            <span className="text-sm font-medium text-gray-900">{userInfo.name}</span>
+            <span className="text-xs text-gray-500">{userInfo.email}</span>
           </div>
           <ChevronDown 
             size={16} 
@@ -63,8 +84,8 @@ const Header = ({ onLogout }: HeaderProps) => {
                   <UserCircle className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">¡Hola, ADMIN!</p>
-                  <p className="text-sm text-gray-600">{email}</p>
+                  <p className="font-medium text-gray-900">¡Hola, {userInfo.name}!</p>
+                  <p className="text-sm text-gray-600">{userInfo.email}</p>
                 </div>
               </div>
             </div>
