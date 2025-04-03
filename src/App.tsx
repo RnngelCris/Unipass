@@ -72,7 +72,6 @@ function AppRoutes() {
               <Route path="universitario-f">
                 <Route path="salidas" element={<Salidas />} />
                 <Route path="documentos" element={<Documentos />} />
-                <Route path="avisos" element={<Avisos />} />
                 <Route path="expediente" element={<Expediente />} />
               </Route>
 

@@ -22,7 +22,6 @@ const Sidebar = () => {
     const basePath = getBasePath();
     const baseMenuItems = [
       { icon: DoorClosed, text: 'Salidas', path: `${basePath}/salidas` },
-      { icon: Bell, text: 'Avisos', path: `${basePath}/avisos` },
     ];
 
     switch (tipoUser) {
@@ -34,7 +33,6 @@ const Sidebar = () => {
         ];
       case 'ADMIN':
         return [
-          { icon: Bell, text: 'Avisos', path: `${basePath}/avisos` },
           { icon: Users, text: 'Gestión de Usuarios', path: `${basePath}/usuarios` },
           { icon: ClipboardList, text: 'Reportes', path: `${basePath}/reportes` },
         ];

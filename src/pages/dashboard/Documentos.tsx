@@ -104,7 +104,6 @@ const Documentos: React.FC<DashboardProps> = () => {
 
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
@@ -141,24 +140,6 @@ const Documentos: React.FC<DashboardProps> = () => {
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
-  };
-
-  const handleUpload = (files: FileList | null) => {
-    if (!files) return;
-    const newDoc: Document = {
-      id: (documents.length + 1).toString(),
-      name: files[0].name.split('.')[0],
-      fileName: files[0].name,
-      type: 'pdf',
-      size: `${(files[0].size / (1024 * 1024)).toFixed(1)} MB`,
-      uploadDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      author: 'Usuario Actual',
-      studentId: '2024003',
-      icon: 'reglamento'
-    };
-    setDocuments([...documents, newDoc]);
-    setShowUploadModal(false);
   };
 
   const handleDownload = (doc: Document) => {
@@ -231,7 +212,6 @@ const Documentos: React.FC<DashboardProps> = () => {
     setShowActionsMenu(null);
     setShowRejectModal(false);
     setShowPreviewModal(false);
-    setShowUploadModal(false);
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -399,13 +379,6 @@ const Documentos: React.FC<DashboardProps> = () => {
               <h1 className="text-2xl font-semibold">Documentos Estudiantiles</h1>
               <p className="text-gray-600">Gestión y seguimiento de documentación requerida</p>
             </div>
-            <button 
-              onClick={() => setShowUploadModal(true)}
-              className="bg-[#003B5C] text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-[#002B44] transition-colors"
-            >
-              <Upload size={20} />
-              <span>Subir Documento</span>
-            </button>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-8">
@@ -462,46 +435,6 @@ const Documentos: React.FC<DashboardProps> = () => {
 
             <div className="p-4 space-y-4">
               {filteredDocuments.map(renderDocumentCard)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Subir Documento</h3>
-            <div className="border-2 border-dashed rounded-lg p-8 text-center">
-              <input
-                type="file"
-                onChange={(e) => handleUpload(e.target.files)}
-                className="hidden"
-                id="file-upload"
-                accept=".pdf"
-              />
-              <label 
-                htmlFor="file-upload"
-                className="cursor-pointer flex flex-col items-center"
-              >
-                <Upload size={40} className="text-gray-400 mb-2" />
-                <p className="text-gray-600">Arrastra y suelta archivos aquí o</p>
-                <p className="text-blue-600 font-medium">selecciona un archivo</p>
-                <p className="text-sm text-gray-500 mt-2">Solo archivos PDF</p>
-              </label>
-            </div>
-            <div className="flex justify-end mt-4 space-x-2">
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Subir
-              </button>
             </div>
           </div>
         </div>
