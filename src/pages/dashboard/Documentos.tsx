@@ -32,10 +32,10 @@ interface Student {
 type DocumentStatus = 'pending' | 'approved' | 'rejected';
 
 const documentIcons = {
-  reglamento: <ScrollText size={32} className="text-blue-600" />,
-  dormitorio: <Home size={32} className="text-green-600" />,
-  antidoping: <Stethoscope size={32} className="text-red-600" />,
-  salida: <DoorOpen size={32} className="text-yellow-600" />
+  reglamento: <ScrollText size={32} className="text-blue-600 dark:text-blue-400" />,
+  dormitorio: <Home size={32} className="text-green-600 dark:text-green-400" />,
+  antidoping: <Stethoscope size={32} className="text-red-600 dark:text-red-400" />,
+  salida: <DoorOpen size={32} className="text-yellow-600 dark:text-yellow-400" />
 };
 
 const Documentos: React.FC<DashboardProps> = () => {
@@ -102,6 +102,13 @@ const Documentos: React.FC<DashboardProps> = () => {
     }
   ]);
 
+  const stats = [
+    { label: 'Documentos Pendientes', value: 8, change: '+2', color: 'text-yellow-600 dark:text-yellow-400' },
+    { label: 'Documentos Aprobados', value: 45, change: '+5', color: 'text-green-600 dark:text-green-400' },
+    { label: 'Total de Documentos', value: 53, change: '+7', color: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Tasa de Aprobación', value: '85%', change: '+3%', color: 'text-purple-600 dark:text-purple-400' }
+  ];
+
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -113,21 +120,13 @@ const Documentos: React.FC<DashboardProps> = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const totalPages = 3;
-
   const menuRef = useRef<HTMLDivElement>(null);
-
-  const stats = [
-    { label: 'Documentos Pendientes', value: 8, change: '+2' },
-    { label: 'Documentos Aprobados', value: 45, change: '+5' },
-    { label: 'Total de Documentos', value: 53, change: '+7' },
-    { label: 'Tasa de Aprobación', value: '85%', change: '+3%' }
-  ];
 
   const getStatusBadge = (status: DocumentStatus) => {
     const styles: Record<DocumentStatus, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
     };
     const icons: Record<DocumentStatus, JSX.Element> = {
       pending: <AlertCircle size={16} className="mr-1" />,
@@ -152,12 +151,8 @@ const Documentos: React.FC<DashboardProps> = () => {
   };
 
   const handlePreview = (doc: Document) => {
-    if (doc.previewUrl) {
-      window.open(doc.previewUrl, '_blank');
-    } else {
-      setSelectedDocument(doc);
-      setShowPreviewModal(true);
-    }
+    setSelectedDocument(doc);
+    setShowPreviewModal(true);
   };
 
   const handleApprove = (doc: Document) => {
@@ -225,120 +220,6 @@ const Documentos: React.FC<DashboardProps> = () => {
     action();
   };
 
-  const renderActionsMenu = (doc: Document) => (
-    <div 
-      className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border py-1 z-50"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        onClick={() => {
-          handlePreview(doc);
-          setShowActionsMenu(null);
-        }}
-        className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50"
-      >
-        <Eye className="h-4 w-4 mr-2 text-gray-600" />
-        <span>Ver documento</span>
-      </button>
-      
-      <button
-        onClick={() => {
-          handleDownload(doc);
-          setShowActionsMenu(null);
-        }}
-        className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50"
-      >
-        <Download className="h-4 w-4 mr-2 text-gray-600" />
-        <span>Descargar</span>
-      </button>
-
-      {doc.status === 'pending' && (
-        <>
-          <button
-            onClick={() => {
-              handleApprove(doc);
-              setShowActionsMenu(null);
-            }}
-            className="w-full px-4 py-2 text-left flex items-center hover:bg-green-50 text-green-600"
-          >
-            <Check className="h-4 w-4 mr-2" />
-            <span>Aprobar documento</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setSelectedDocument(doc);
-              setShowRejectModal(true);
-              setShowActionsMenu(null);
-            }}
-            className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 text-red-600"
-          >
-            <X className="h-4 w-4 mr-2" />
-            <span>Rechazar documento</span>
-          </button>
-        </>
-      )}
-
-      <button
-        onClick={() => {
-          handleDelete(doc.id);
-          setShowActionsMenu(null);
-        }}
-        className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 text-red-600"
-      >
-        <Trash2 className="h-4 w-4 mr-2" />
-        <span>Eliminar documento</span>
-      </button>
-    </div>
-  );
-
-  const renderDocumentCard = (doc: Document) => (
-    <div key={doc.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gray-50 rounded-lg">
-            {documentIcons[doc.icon]}
-          </div>
-          <div>
-            <h3 className="font-medium">{doc.name}</h3>
-            <p className="text-sm text-gray-500">{doc.fileName}</p>
-          </div>
-          {getStatusBadge(doc.status)}
-        </div>
-        <div className="relative">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowActionsMenu(showActionsMenu === doc.id ? null : doc.id);
-            }}
-            className="p-2 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <MoreVertical size={20} />
-          </button>
-          
-          {showActionsMenu === doc.id && renderActionsMenu(doc)}
-        </div>
-      </div>
-      <div className="mt-2 flex items-center text-sm text-gray-500">
-        <span>{doc.author} • {doc.studentId}</span>
-        <span className="mx-2">•</span>
-        <span>{doc.uploadDate}</span>
-        <span className="mx-2">•</span>
-        <span>{doc.size}</span>
-      </div>
-      {doc.description && (
-        <p className="mt-2 text-sm text-gray-600">
-          {doc.description}
-        </p>
-      )}
-      {doc.status === 'rejected' && doc.rejectionReason && (
-        <p className="mt-2 text-sm text-red-600">
-          Motivo de rechazo: {doc.rejectionReason}
-        </p>
-      )}
-    </div>
-  );
-
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -373,44 +254,56 @@ const Documentos: React.FC<DashboardProps> = () => {
       )}
 
       {!selectedStudent && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-semibold">Documentos Estudiantiles</h1>
-              <p className="text-gray-600">Gestión y seguimiento de documentación requerida</p>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Documentos Estudiantiles</h1>
+              <p className="text-gray-600 dark:text-gray-400">Gestión y seguimiento de documentación requerida</p>
             </div>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-8">
             {stats.map((stat) => (
-              <div key={stat.label} className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-gray-600 text-sm">{stat.label}</p>
+              <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border dark:border-gray-700">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">{stat.label}</p>
                 <div className="flex items-end justify-between mt-2">
-                  <p className="text-2xl font-semibold">{stat.value}</p>
-                  <p className="text-green-600 text-sm">{stat.change}</p>
+                  <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stat.value}</p>
+                  <p className="text-green-600 dark:text-green-400 text-sm">{stat.change}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-4 border-b">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <div className="p-4 border-b dark:border-gray-700">
               <div className="flex items-center space-x-4 mb-4">
                 <button 
                   onClick={() => setSelectedFilter('all')}
-                  className={`px-4 py-2 ${selectedFilter === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+                  className={`px-4 py-2 ${
+                    selectedFilter === 'all' 
+                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
                 >
                   Todos
                 </button>
                 <button 
                   onClick={() => setSelectedFilter('pending')}
-                  className={`px-4 py-2 ${selectedFilter === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+                  className={`px-4 py-2 ${
+                    selectedFilter === 'pending' 
+                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
                 >
                   Pendientes
                 </button>
                 <button 
                   onClick={() => setSelectedFilter('approved')}
-                  className={`px-4 py-2 ${selectedFilter === 'approved' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
+                  className={`px-4 py-2 ${
+                    selectedFilter === 'approved' 
+                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
                 >
                   Aprobados
                 </button>
@@ -421,100 +314,192 @@ const Documentos: React.FC<DashboardProps> = () => {
                   <input
                     type="text"
                     placeholder="Buscar por nombre o matrícula..."
-                    className="pl-10 w-96 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                    className="pl-10 w-96 px-4 py-2 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <button className="flex items-center space-x-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
-                  <Filter size={16} />
-                  <span>Filtros</span>
+                <button className="flex items-center space-x-2 px-4 py-2 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <Filter size={16} className="text-gray-600 dark:text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-400">Filtros</span>
                 </button>
               </div>
             </div>
 
             <div className="p-4 space-y-4">
-              {filteredDocuments.map(renderDocumentCard)}
+              {filteredDocuments.map((doc) => (
+                <div key={doc.id} className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        {documentIcons[doc.icon]}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">{doc.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{doc.fileName}</p>
+                      </div>
+                      {getStatusBadge(doc.status)}
+                    </div>
+                    <div className="relative">
+                      <button 
+                        onClick={(e) => handleActionClick(e, () => setShowActionsMenu(showActionsMenu === doc.id ? null : doc.id))}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        <MoreVertical size={20} />
+                      </button>
+                      
+                      {showActionsMenu === doc.id && (
+                        <div ref={menuRef} className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-1 z-50">
+                          <button
+                            onClick={(e) => handleActionClick(e, () => handlePreview(doc))}
+                            className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <Eye className="h-4 w-4 mr-2 text-gray-600 dark:text-gray-400" />
+                            <span className="text-gray-700 dark:text-gray-300">Ver documento</span>
+                          </button>
+                          
+                          <button
+                            onClick={(e) => handleActionClick(e, () => handleDownload(doc))}
+                            className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <Download className="h-4 w-4 mr-2 text-gray-600 dark:text-gray-400" />
+                            <span className="text-gray-700 dark:text-gray-300">Descargar</span>
+                          </button>
+
+                          {doc.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={(e) => handleActionClick(e, () => handleApprove(doc))}
+                                className="w-full px-4 py-2 text-left flex items-center hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400"
+                              >
+                                <Check className="h-4 w-4 mr-2" />
+                                <span>Aprobar documento</span>
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  setSelectedDocument(doc);
+                                  setShowRejectModal(true);
+                                  setShowActionsMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                <span>Rechazar documento</span>
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            onClick={(e) => handleActionClick(e, () => handleDelete(doc.id))}
+                            className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            <span>Eliminar documento</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                    <span>{doc.author} • {doc.studentId}</span>
+                    <span className="mx-2">•</span>
+                    <span>{doc.uploadDate}</span>
+                    <span className="mx-2">•</span>
+                    <span>{doc.size}</span>
+                  </div>
+                  {doc.description && (
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      {doc.description}
+                    </p>
+                  )}
+                  {doc.status === 'rejected' && doc.rejectionReason && (
+                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                      Motivo de rechazo: {doc.rejectionReason}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       {showPreviewModal && selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   {documentIcons[selectedDocument.icon]}
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold">{selectedDocument.name}</h3>
-                  <p className="text-sm text-gray-600">{selectedDocument.fileName}</p>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedDocument.name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedDocument.fileName}</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowPreviewModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <X size={24} />
               </button>
             </div>
 
             <div className="flex-1 overflow-hidden relative">
-              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
                 <div 
                   style={{ 
                     transform: `scale(${previewScale})`,
                     transition: 'transform 0.2s ease-in-out'
                   }}
-                  className="bg-white shadow-lg rounded-lg w-[800px] h-[1000px] flex items-center justify-center"
+                  className="bg-white dark:bg-gray-800 shadow-lg rounded-lg w-[800px] h-[1000px] flex items-center justify-center"
                 >
-                  <p className="text-gray-500">Vista previa del documento - Página {currentPage}</p>
+                  <p className="text-gray-500 dark:text-gray-400">Vista previa del documento - Página {currentPage}</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 border-t bg-gray-50">
+            <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleZoomOut}
-                      className="p-2 hover:bg-gray-200 rounded-lg"
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                       disabled={previewScale <= 0.5}
                     >
-                      <ZoomOut size={20} />
+                      <ZoomOut size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
                       {Math.round(previewScale * 100)}%
                     </span>
                     <button
                       onClick={handleZoomIn}
-                      className="p-2 hover:bg-gray-200 rounded-lg"
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                       disabled={previewScale >= 2}
                     >
-                      <ZoomIn size={20} />
+                      <ZoomIn size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
                   </div>
 
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handlePrevPage}
-                      className="p-2 hover:bg-gray-200 rounded-lg"
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                       disabled={currentPage <= 1}
                     >
-                      <ChevronLeft size={20} />
+                      <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
                       Página {currentPage} de {totalPages}
                     </span>
                     <button
                       onClick={handleNextPage}
-                      className="p-2 hover:bg-gray-200 rounded-lg"
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
                       disabled={currentPage >= totalPages}
                     >
-                      <ChevronRight size={20} />
+                      <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
                   </div>
                 </div>
@@ -522,7 +507,7 @@ const Documentos: React.FC<DashboardProps> = () => {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handleDownload(selectedDocument)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                    className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center"
                   >
                     <Download size={20} className="mr-2" />
                     Descargar
@@ -535,14 +520,14 @@ const Documentos: React.FC<DashboardProps> = () => {
       )}
 
       {showRejectModal && selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Rechazar Documento</h3>
-            <p className="text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rechazar Documento</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               Por favor, indique el motivo por el cual se rechaza el documento "{selectedDocument.name}"
             </p>
             <textarea
-              className="w-full border rounded-lg p-3 mb-4 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full border dark:border-gray-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               rows={4}
               placeholder="Ingrese el motivo del rechazo..."
               value={rejectionReason}
@@ -554,13 +539,13 @@ const Documentos: React.FC<DashboardProps> = () => {
                   setShowRejectModal(false);
                   setRejectionReason('');
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => handleReject(selectedDocument)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600"
               >
                 Rechazar
               </button>

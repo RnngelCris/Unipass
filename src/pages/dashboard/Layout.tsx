@@ -26,8 +26,8 @@ const DashboardLayout = ({ onLogout }: DashboardLayoutProps) => {
         <main className="flex-1 p-6 pb-24">
           <Outlet />
         </main>
-        <footer className="fixed bottom-0 right-0 w-[calc(100%-16rem)] bg-gray-100 py-4 px-6 border-t">
-          <div className="max-w-6xl mx-auto text-center text-gray-600">
+        <footer className="fixed bottom-0 right-0 w-[calc(100%-16rem)] bg-gray-100 dark:bg-gray-800 py-4 px-6 border-t dark:border-gray-700">
+          <div className="max-w-6xl mx-auto text-center text-gray-600 dark:text-gray-400">
             <p>Universidad Linda Vista</p>
             <p>© 2025 Todos los derechos reservados</p>
           </div>

@@ -298,11 +298,11 @@ const Expediente: React.FC<DashboardProps> = () => {
 
   const getStatusBadge = (status: StatusType) => {
     const styles: Record<StatusType, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800'
+      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+      active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      inactive: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
     };
     return styles[status];
   };
@@ -334,19 +334,19 @@ const Expediente: React.FC<DashboardProps> = () => {
   const renderExitsTab = (student: Student) => {
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-medium">Historial de Salidas</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Historial de Salidas</h3>
         <div className="space-y-4">
           {student.recentActivity
             .filter(activity => activity.type === 'exit')
             .map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="p-2 bg-white rounded-full shadow-sm">
-                  {getActivityIcon(activity.type)}
+              <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm">
+                  <DoorClosed className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{activity.description}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{activity.description}</p>
                   <div className="flex items-center space-x-4 mt-1">
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(activity.date)}
                     </span>
                     {activity.status && (
@@ -364,11 +364,63 @@ const Expediente: React.FC<DashboardProps> = () => {
   };
 
   const renderDelaysTab = (student: Student) => {
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            color: 'rgb(209, 213, 219)'
+          },
+          grid: {
+            color: 'rgba(156, 163, 175, 0.15)',
+            drawBorder: false
+          }
+        },
+        x: {
+          ticks: {
+            color: 'rgb(209, 213, 219)'
+          },
+          grid: {
+            display: false,
+            drawBorder: false
+          }
+        }
+      },
+      elements: {
+        point: {
+          radius: 4,
+          hoverRadius: 6,
+          borderWidth: 2,
+          backgroundColor: '#1F2937'
+        },
+        line: {
+          borderWidth: 2.5
+        }
+      }
+    };
+
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-medium">Historial de Retardos</h3>
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <div className="h-64">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Historial de Retardos</h3>
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+          <div className="h-64 relative">
+            <div className="absolute inset-0 bg-gradient-to-b dark:from-gray-900/50 dark:to-gray-900/0 z-10 pointer-events-none" />
             <Line
               data={{
                 labels: student.lateHistory.map(item => item.month),
@@ -376,29 +428,19 @@ const Expediente: React.FC<DashboardProps> = () => {
                   {
                     label: 'Retardos',
                     data: student.lateHistory.map(item => item.count),
-                    borderColor: '#EF4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderColor: '#F87171',
+                    backgroundColor: 'rgba(248, 113, 113, 0.2)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#F87171',
+                    pointBorderColor: '#F87171',
+                    pointHoverBackgroundColor: '#FCA5A5',
+                    pointHoverBorderColor: '#FCA5A5'
                   }
                 ]
               }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    display: false
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      stepSize: 1
-                    }
-                  }
-                }
-              }}
+              options={chartOptions}
             />
           </div>
         </div>
@@ -454,10 +496,15 @@ const Expediente: React.FC<DashboardProps> = () => {
         {
           label: 'Salidas',
           data: student.exitHistory.map(item => item.count),
-          borderColor: '#3B82F6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: '#60A5FA',
+          backgroundColor: 'rgba(96, 165, 250, 0.2)',
           tension: 0.4,
-          fill: true
+          fill: true,
+          borderWidth: 2,
+          pointBackgroundColor: '#60A5FA',
+          pointBorderColor: '#60A5FA',
+          pointHoverBackgroundColor: '#93C5FD',
+          pointHoverBorderColor: '#93C5FD'
         }
       ]
     };
@@ -468,27 +515,66 @@ const Expediente: React.FC<DashboardProps> = () => {
         {
           label: 'Retardos',
           data: student.lateHistory.map(item => item.count),
-          borderColor: '#EF4444',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderColor: '#F87171',
+          backgroundColor: 'rgba(248, 113, 113, 0.2)',
           tension: 0.4,
-          fill: true
+          fill: true,
+          borderWidth: 2,
+          pointBackgroundColor: '#F87171',
+          pointBorderColor: '#F87171',
+          pointHoverBackgroundColor: '#FCA5A5',
+          pointHoverBorderColor: '#FCA5A5'
         }
       ]
     };
 
     const chartOptions = {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17, 24, 39, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1
         }
       },
       scales: {
         y: {
           beginAtZero: true,
           ticks: {
-            stepSize: 1
+            stepSize: 1,
+            color: 'rgb(209, 213, 219)'
+          },
+          grid: {
+            color: 'rgba(156, 163, 175, 0.15)',
+            drawBorder: false
           }
+        },
+        x: {
+          ticks: {
+            color: 'rgb(209, 213, 219)'
+          },
+          grid: {
+            display: false,
+            drawBorder: false
+          }
+        }
+      },
+      elements: {
+        point: {
+          radius: 4,
+          hoverRadius: 6,
+          borderWidth: 2,
+          backgroundColor: '#1F2937'
+        },
+        line: {
+          borderWidth: 2.5
         }
       }
     };
@@ -497,92 +583,94 @@ const Expediente: React.FC<DashboardProps> = () => {
       <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <DoorClosed className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <DoorClosed className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-sm font-medium text-gray-600">Salidas</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Salidas</span>
               </div>
-              <span className="text-sm text-green-600">+2</span>
+              <span className="text-sm text-green-600 dark:text-green-400">+2</span>
             </div>
-            <p className="text-2xl font-semibold mt-2">{student.stats.salidas}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{student.stats.salidas}</p>
           </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                  <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
-                <span className="text-sm font-medium text-gray-600">Retardos</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Retardos</span>
               </div>
-              <span className="text-sm text-yellow-600">+1</span>
+              <span className="text-sm text-yellow-600 dark:text-yellow-400">+1</span>
             </div>
-            <p className="text-2xl font-semibold mt-2">{student.stats.retardos}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{student.stats.retardos}</p>
           </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <FileText className="h-5 w-5 text-purple-600" />
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <span className="text-sm font-medium text-gray-600">Permisos</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Permisos</span>
               </div>
-              <span className="text-sm text-purple-600">+3</span>
+              <span className="text-sm text-purple-600 dark:text-purple-400">+3</span>
             </div>
-            <p className="text-2xl font-semibold mt-2">{student.stats.permisos}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{student.stats.permisos}</p>
           </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
-                <span className="text-sm font-medium text-gray-600">Advertencias</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Advertencias</span>
               </div>
-              <span className="text-sm text-red-600">+1</span>
+              <span className="text-sm text-red-600 dark:text-red-400">+1</span>
             </div>
-            <p className="text-2xl font-semibold mt-2">{student.stats.advertencias}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{student.stats.advertencias}</p>
           </div>
         </div>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-medium mb-4">Tendencia de Salidas</h3>
-            <div className="h-64">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Salidas</h3>
+            <div className="h-64 relative">
+              <div className="absolute inset-0 bg-gradient-to-b dark:from-gray-900/50 dark:to-gray-900/0 z-10 pointer-events-none" />
               <Line data={exitData} options={chartOptions} />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-medium mb-4">Tendencia de Retardos</h3>
-            <div className="h-64">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Retardos</h3>
+            <div className="h-64 relative">
+              <div className="absolute inset-0 bg-gradient-to-b dark:from-gray-900/50 dark:to-gray-900/0 z-10 pointer-events-none" />
               <Line data={lateData} options={chartOptions} />
             </div>
           </div>
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b">
-            <h3 className="text-lg font-medium">Actividad Reciente</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="p-6 border-b dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Actividad Reciente</h3>
           </div>
           <div className="p-4">
             <div className="space-y-4">
               {(showAllActivity ? student.recentActivity : student.recentActivity.slice(0, 3)).map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="p-2 bg-white rounded-full shadow-sm">
+                <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm">
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{activity.description}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{activity.description}</p>
                     <div className="flex items-center space-x-4 mt-1">
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         {formatDate(activity.date)}
                       </span>
                       {activity.status && (
@@ -598,7 +686,7 @@ const Expediente: React.FC<DashboardProps> = () => {
             {student.recentActivity.length > 3 && (
               <button
                 onClick={() => setShowAllActivity(!showAllActivity)}
-                className="w-full mt-4 text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="w-full mt-4 text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
               >
                 {showAllActivity ? 'Ver menos' : 'Ver más actividad'}
               </button>
@@ -608,28 +696,36 @@ const Expediente: React.FC<DashboardProps> = () => {
 
         {/* Warnings */}
         {student.warnings.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-medium">Advertencias Activas</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <div className="p-6 border-b dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Advertencias Activas</h3>
             </div>
             <div className="p-4 space-y-4">
               {student.warnings.map((warning) => (
                 <div
                   key={warning.id}
                   className={`p-4 rounded-lg ${
-                    warning.type === 'danger' ? 'bg-red-50' : 'bg-yellow-50'
+                    warning.type === 'danger' 
+                      ? 'bg-red-50 dark:bg-red-900/30' 
+                      : 'bg-yellow-50 dark:bg-yellow-900/30'
                   }`}
                 >
                   <div className="flex items-start">
                     <AlertTriangle className={`h-5 w-5 mt-0.5 mr-3 ${
-                      warning.type === 'danger' ? 'text-red-500' : 'text-yellow-500'
+                      warning.type === 'danger' 
+                        ? 'text-red-500 dark:text-red-400' 
+                        : 'text-yellow-500 dark:text-yellow-400'
                     }`} />
                     <div>
-                      <p className={warning.type === 'danger' ? 'text-red-800' : 'text-yellow-800'}>
+                      <p className={warning.type === 'danger' 
+                        ? 'text-red-800 dark:text-red-300' 
+                        : 'text-yellow-800 dark:text-yellow-300'}>
                         {warning.message}
                       </p>
                       <p className={`text-sm mt-1 ${
-                        warning.type === 'danger' ? 'text-red-600' : 'text-yellow-600'
+                        warning.type === 'danger' 
+                          ? 'text-red-600 dark:text-red-400' 
+                          : 'text-yellow-600 dark:text-yellow-400'
                       }`}>
                         {formatDate(warning.date)}
                       </p>
@@ -649,40 +745,40 @@ const Expediente: React.FC<DashboardProps> = () => {
       {!selectedStudent ? (
         <div className="space-y-6">
           <div className="flex items-center space-x-4">
-            <div className="bg-yellow-400 rounded-lg p-3">
-              <Users className="h-6 w-6 text-gray-800" />
+            <div className="bg-yellow-400 dark:bg-yellow-500 rounded-lg p-3">
+              <Users className="h-6 w-6 text-gray-800 dark:text-gray-900" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold">Expedientes Estudiantiles</h1>
-              <p className="text-gray-600">Gestión y seguimiento de estudiantes</p>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Expedientes Estudiantiles</h1>
+              <p className="text-gray-600 dark:text-gray-400">Gestión y seguimiento de estudiantes</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
                 placeholder="Buscar por matrícula o nombre del estudiante..."
-                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border divide-y">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 divide-y dark:divide-gray-700">
                   {searchResults.map((student) => (
                     <button
                       key={student.id}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center space-x-3"
                       onClick={() => handleSelectStudent(student)}
                     >
-                      <div className="bg-yellow-400 rounded-full p-2">
-                        <User className="h-5 w-5 text-gray-800" />
+                      <div className="bg-yellow-400 dark:bg-yellow-500 rounded-full p-2">
+                        <User className="h-5 w-5 text-gray-800 dark:text-gray-900" />
                       </div>
                       <div>
-                        <p className="font-medium">{student.name}</p>
-                        <div className="flex items-center space-x-3 text-sm text-gray-600">
+                        <p className="font-medium text-gray-900 dark:text-white">{student.name}</p>
+                        <div className="flex items-center space-x-3 text-sm text-gray-600 dark:text-gray-400">
                           <span className="flex items-center">
                             <GraduationCap className="h-4 w-4 mr-1" />
                             {student.id}
@@ -709,17 +805,17 @@ const Expediente: React.FC<DashboardProps> = () => {
                   setSelectedStudent(null);
                   setSearchQuery('');
                 }}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               >
                 ← Volver
               </button>
               <div className="flex items-center space-x-3">
-                <div className="bg-yellow-400 rounded-full p-2">
-                  <User className="h-6 w-6 text-gray-800" />
+                <div className="bg-yellow-400 dark:bg-yellow-500 rounded-full p-2">
+                  <User className="h-6 w-6 text-gray-800 dark:text-gray-900" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-semibold">{selectedStudent.name}</h1>
-                  <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{selectedStudent.name}</h1>
+                  <div className="flex items-center space-x-3 text-sm text-gray-600 dark:text-gray-400">
                     <span className="flex items-center">
                       <GraduationCap className="h-4 w-4 mr-1" />
                       {selectedStudent.id}
@@ -737,8 +833,8 @@ const Expediente: React.FC<DashboardProps> = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="border-b">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <div className="border-b dark:border-gray-700">
               <div className="flex">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
@@ -748,8 +844,8 @@ const Expediente: React.FC<DashboardProps> = () => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`px-6 py-4 text-sm font-medium transition-colors duration-200 flex items-center space-x-2 ${
                         activeTab === tab.id
-                          ? 'bg-yellow-400 text-gray-900'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-900'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                       }`}
                     >
                       <Icon size={20} />
@@ -772,17 +868,17 @@ const Expediente: React.FC<DashboardProps> = () => {
 
       {/* Add Note Modal */}
       {showNoteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-            <h3 className="text-lg font-semibold mb-4">Agregar Nota de Comportamiento</h3>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Agregar Nota de Comportamiento</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tipo de nota
                 </label>
                 <select
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  className="w-full px-4 py-2 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   value={newNote.type}
                   onChange={(e) => setNewNote({ ...newNote, type: e.target.value as BehaviorNoteType })}
                 >
@@ -792,11 +888,11 @@ const Expediente: React.FC<DashboardProps> = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Contenido
                 </label>
                 <textarea
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  className="w-full px-4 py-2 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   rows={4}
                   placeholder="Describe el comportamiento del estudiante..."
                   value={newNote.content}
@@ -808,13 +904,13 @@ const Expediente: React.FC<DashboardProps> = () => {
             <div className="flex justify-end space-x-2 mt-6">
               <button
                 onClick={() => setShowNoteModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddNote}
-                className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg hover:bg-yellow-500"
+                className="px-4 py-2 bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-gray-900 rounded-lg hover:bg-yellow-500 dark:hover:bg-yellow-600"
               >
                 Guardar nota
               </button>

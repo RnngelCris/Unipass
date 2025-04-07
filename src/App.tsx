@@ -9,6 +9,7 @@ import Documentos from './pages/dashboard/Documentos';
 import Avisos from './pages/dashboard/Avisos';
 import Expediente from './pages/dashboard/Expediente';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 function AppRoutes() {
   const { isAuthenticated, userData } = useAuth();
@@ -29,7 +30,7 @@ function AppRoutes() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <Routes>
         {!isAuthenticated ? (
           <>
@@ -89,9 +90,11 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }
