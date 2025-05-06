@@ -1,557 +1,589 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Upload, Search, Filter, Eye, Download, Trash2, FileText,
-  Check, X, MoreVertical, ScrollText, Home, Stethoscope, DoorOpen,
-  AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  User, GraduationCap, MapPin
+  Search, Filter, Eye, Download, FileText, Check, X, 
+  ScrollText, FileCheck, FilePlus, FileWarning, User,
+  GraduationCap, MapPin, AlertCircle, ChevronDown,
+  Users, Clock, Calendar, ExternalLink
 } from 'lucide-react';
-import { DashboardProps } from '../../types/dashboard';
-
-interface Document {
-  id: string;
-  name: string;
-  fileName: string;
-  type: 'pdf';
-  size: string;
-  uploadDate: string;
-  status: 'pending' | 'approved' | 'rejected';
-  description?: string;
-  author: string;
-  studentId: string;
-  icon: keyof typeof documentIcons;
-  rejectionReason?: string;
-  downloadUrl?: string;
-  previewUrl?: string;
-}
-
-interface Student {
-  id: string;
-  dormitory: string;
-}
-
-type DocumentStatus = 'pending' | 'approved' | 'rejected';
+import DocumentService, { Expediente, DocumentoEstudiante, DocumentoParaEliminar } from '../../services/DocumentService';
+import DocumentViewer from './DocumentViewer';
+import { API_URL } from '../../config/constants';
+import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
 
 const documentIcons = {
-  reglamento: <ScrollText size={32} className="text-blue-600 dark:text-blue-400" />,
-  dormitorio: <Home size={32} className="text-green-600 dark:text-green-400" />,
-  antidoping: <Stethoscope size={32} className="text-red-600 dark:text-red-400" />,
-  salida: <DoorOpen size={32} className="text-yellow-600 dark:text-yellow-400" />
+  'Reglamento HVU': <ScrollText className="h-6 w-6 text-blue-600" />,
+  'Convenio de salidas': <FileCheck className="h-6 w-6 text-green-600" />,
+  'Imagen Perfil': <User className="h-6 w-6 text-purple-600" />,
+  'INE Tutor': <GraduationCap className="h-6 w-6 text-orange-600" />,
+  'Justificante': <FileWarning className="h-6 w-6 text-red-600" />
 };
 
-const Documentos: React.FC<DashboardProps> = () => {
-  const [documents, setDocuments] = useState<Document[]>([
-    {
-      id: '1',
-      name: 'Reglamento ULV',
-      fileName: 'Reglamento_ULV_2024.pdf',
-      type: 'pdf',
-      size: '2.4 MB',
-      uploadDate: '2024-03-15 14:30',
-      status: 'approved',
-      description: 'Reglamento general de la Universidad Linda Vista',
-      author: 'Juan Pérez',
-      studentId: '2024001',
-      icon: 'reglamento',
-      downloadUrl: '/documents/reglamento.pdf',
-      previewUrl: '/previews/reglamento.pdf'
-    },
-    {
-      id: '2',
-      name: 'Reglamento del Dormitorio',
-      fileName: 'Reglamento_Dormitorio_2024.pdf',
-      type: 'pdf',
-      size: '1.8 MB',
-      uploadDate: '2024-03-14 09:15',
-      status: 'approved',
-      description: 'Normativas y políticas del dormitorio estudiantil',
-      author: 'María López',
-      studentId: '2024002',
-      icon: 'dormitorio',
-      downloadUrl: '/documents/dormitorio.pdf',
-      previewUrl: '/previews/dormitorio.pdf'
-    },
-    {
-      id: '3',
-      name: 'Antidoping',
-      fileName: 'Antidoping_2024.pdf',
-      type: 'pdf',
-      size: '1.2 MB',
-      uploadDate: '2024-03-13 11:30',
-      status: 'pending',
-      description: 'Formato de consentimiento para prueba antidoping',
-      author: 'Pedro Ramírez',
-      studentId: '2024003',
-      icon: 'antidoping',
-      downloadUrl: '/documents/antidoping.pdf',
-      previewUrl: '/previews/antidoping.pdf'
-    },
-    {
-      id: '4',
-      name: 'Acuerdo de Salida',
-      fileName: 'Acuerdo_Salida_2024.pdf',
-      type: 'pdf',
-      size: '1.5 MB',
-      uploadDate: '2024-03-12 15:45',
-      status: 'pending',
-      description: 'Acuerdo y condiciones para salidas del campus',
-      author: 'Ana García',
-      studentId: '2024004',
-      icon: 'salida',
-      downloadUrl: '/documents/salida.pdf',
-      previewUrl: '/previews/salida.pdf'
-    }
-  ]);
-
-  const stats = [
-    { label: 'Documentos Pendientes', value: 8, change: '+2', color: 'text-yellow-600 dark:text-yellow-400' },
-    { label: 'Documentos Aprobados', value: 45, change: '+5', color: 'text-green-600 dark:text-green-400' },
-    { label: 'Total de Documentos', value: 53, change: '+7', color: 'text-blue-600 dark:text-blue-400' },
-    { label: 'Tasa de Aprobación', value: '85%', change: '+3%', color: 'text-purple-600 dark:text-purple-400' }
-  ];
-
-  const [selectedFilter, setSelectedFilter] = useState('all');
+const Documentos = () => {
+  const { userData } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [previewScale, setPreviewScale] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const totalPages = 3;
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedStudent, setSelectedStudent] = useState<Expediente | null>(null);
+  const [studentDocuments, setStudentDocuments] = useState<DocumentoEstudiante[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [filteredExpedientes, setFilteredExpedientes] = useState<Expediente[]>([]);
+  const [dormitorioId, setDormitorioId] = useState<number | null>(null);
+  const [expedientesConDocumentos, setExpedientesConDocumentos] = useState<Map<string, DocumentoEstudiante[]>>
+    (new Map());
+  const [selectedDocument, setSelectedDocument] = useState<DocumentoEstudiante | null>(null);
+  const [activeDocumentId, setActiveDocumentId] = useState<number | null>(null);
 
-  const getStatusBadge = (status: DocumentStatus) => {
-    const styles: Record<DocumentStatus, string> = {
-      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        // Obtener el ID del dormitorio del localStorage
+        const dormitorioId = localStorage.getItem('idDormitorio');
+        if (!dormitorioId) {
+          console.error('No se encontró el ID del dormitorio');
+          return;
+        }
+        
+        setDormitorioId(Number(dormitorioId));
+        const expedientesData = await DocumentService.getExpedientesPorDormitorio(Number(dormitorioId));
+        setExpedientes(expedientesData);
+        
+        // Obtener documentos para cada expediente
+        const documentosMap = new Map<string, DocumentoEstudiante[]>();
+        for (const expediente of expedientesData) {
+          const docs = await DocumentService.getArchivosAlumno(
+            Number(dormitorioId),
+            expediente.Nombre,
+            expediente.Apellidos
+          );
+          documentosMap.set(`${expediente.Nombre}-${expediente.Apellidos}`, docs);
+        }
+        setExpedientesConDocumentos(documentosMap);
+        
+        // Aplicar filtro inicial
+        filterExpedientes('', 'all', expedientesData, documentosMap);
+      } catch (error) {
+        console.error('Error al inicializar datos:', error);
+      }
     };
-    const icons: Record<DocumentStatus, JSX.Element> = {
-      pending: <AlertCircle size={16} className="mr-1" />,
-      approved: <Check size={16} className="mr-1" />,
-      rejected: <X size={16} className="mr-1" />
-    };
-    return (
-      <span className={`flex items-center px-2 py-1 rounded-full text-xs ${styles[status]}`}>
-        {icons[status]}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
+
+    initializeData();
+  }, []);
+
+  const getExpedienteStatus = (documentos: DocumentoEstudiante[]) => {
+    if (!documentos || documentos.length === 0) return 'pendiente';
+    return documentos.some(doc => doc.StatusRevision.toLowerCase() === 'pendiente') ? 'pendiente' : 'aprobado';
   };
 
-  const handleDownload = (doc: Document) => {
+  const filterExpedientes = (
+    query: string,
+    status: string = selectedStatus,
+    expedientesList = expedientes,
+    docsMap = expedientesConDocumentos
+  ) => {
+    let filtered = expedientesList;
+
+    // Filtrar por estado si no es 'all'
+    if (status !== 'all') {
+      filtered = filtered.filter(expediente => {
+        const docs = docsMap.get(`${expediente.Nombre}-${expediente.Apellidos}`);
+        const estadoEstudiante = calcularEstadoEstudiante(docs);
+        return estadoEstudiante === status;
+      });
+    }
+
+    // Filtrar por búsqueda si hay query
+    if (query.trim()) {
+      filtered = filtered.filter(expediente => {
+        const nombreCompleto = `${expediente.Nombre} ${expediente.Apellidos}`;
+        return nombreCompleto.toLowerCase().includes(query.toLowerCase());
+      });
+    }
+
+    setFilteredExpedientes(filtered);
+  };
+
+  useEffect(() => {
+    filterExpedientes(searchQuery, selectedStatus);
+  }, [searchQuery, selectedStatus, expedientes, expedientesConDocumentos]);
+
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status);
+    filterExpedientes(searchQuery, status);
+  };
+
+  const handleStudentSelect = async (expediente: Expediente) => {
+    if (!dormitorioId) return;
+
+    setIsLoading(true);
+    setSearchError(null);
+    
+    try {
+      const documents = await DocumentService.getArchivosAlumno(
+        dormitorioId,
+        expediente.Nombre,
+        expediente.Apellidos
+      );
+      
+      if (documents && documents.length > 0) {
+        setStudentDocuments(documents);
+        setSelectedStudent(expediente);
+      } else {
+        setSearchError('No se encontraron documentos para este estudiante');
+      }
+    } catch (error) {
+      console.error('Error al buscar estudiante:', error);
+      setSearchError('Error al buscar estudiante. Por favor, intente de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDocumentClick = (doc: DocumentoEstudiante) => {
+    if (doc.Archivo.toLowerCase().endsWith('.pdf') || 
+        doc.Archivo.toLowerCase().endsWith('.jpg') || 
+        doc.Archivo.toLowerCase().endsWith('.jpeg') || 
+        doc.Archivo.toLowerCase().endsWith('.png')) {
+      setSelectedDocument(doc);
+    } else {
+      downloadDocument(doc);
+    }
+  };
+
+  const downloadDocument = (doc: DocumentoEstudiante) => {
     const link = document.createElement('a');
-    link.href = doc.downloadUrl || '#';
-    link.download = doc.fileName;
+    link.href = `${API_URL}${doc.Archivo}`;
+    link.target = '_blank';
+    link.download = `${doc.TipoDocumento}${doc.Archivo.substring(doc.Archivo.lastIndexOf('.'))}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handlePreview = (doc: Document) => {
-    setSelectedDocument(doc);
-    setShowPreviewModal(true);
-  };
-
-  const handleApprove = (doc: Document) => {
-    if (window.confirm('¿Estás seguro de que deseas aprobar este documento?')) {
-      setDocuments(documents.map(d => 
-        d.id === doc.id ? { ...d, status: 'approved' } : d
-      ));
-      setShowActionsMenu(null);
+  const getStatusStyles = (estado?: string) => {
+    if (!estado) return 'bg-gray-100 text-gray-800';
+    
+    switch (estado.toLowerCase()) {
+      case 'aprobado':
+        return 'bg-green-100 text-green-800';
+      case 'rechazado':
+        return 'bg-red-100 text-red-800';
+      case 'pendiente':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleReject = (doc: Document) => {
-    if (!rejectionReason.trim()) {
-      alert('Por favor, ingrese un motivo de rechazo');
-      return;
+  const formatStatus = (estado?: string) => {
+    if (!estado) return 'Sin estado';
+    return estado.charAt(0).toUpperCase() + estado.slice(1).toLowerCase();
+  };
+
+  // Función para determinar si mostrar estudiantes según el departamento del preceptor
+  const shouldShowStudent = (studentNivel: string) => {
+    const data = userData?.Data || userData?.data;
+    if (!data?.employee?.[0]?.DEPARTAMENTO) {
+      return true; // Temporalmente mostramos todos si no hay departamento
     }
     
-    if (window.confirm('¿Estás seguro de que deseas rechazar este documento?')) {
-      setDocuments(documents.map(d => 
-        d.id === doc.id ? { ...d, status: 'rejected', rejectionReason } : d
-      ));
-      setShowRejectModal(false);
-      setShowActionsMenu(null);
-      setRejectionReason('');
+    const preceptorDept = data.employee[0].DEPARTAMENTO.toUpperCase();
+    
+    // Mapeo de departamentos a niveles educativos
+    if (preceptorDept === 'H.V.N.U') {
+      return studentNivel === 'Universidad';
     }
-  };
-
-  const handleDelete = (docId: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este documento? Esta acción no se puede deshacer.')) {
-      setDocuments(documents.filter(doc => doc.id !== docId));
-      setShowActionsMenu(null);
+    if (preceptorDept === 'COLIVI') {
+      return studentNivel === 'Preparatoria';
     }
+    
+    return false;
   };
 
-  const handleZoomIn = () => {
-    setPreviewScale(prev => Math.min(prev + 0.1, 2));
-  };
-
-  const handleZoomOut = () => {
-    setPreviewScale(prev => Math.max(prev - 0.1, 0.5));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-
-  const handlePrevPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const closeAllModals = () => {
-    setShowActionsMenu(null);
-    setShowRejectModal(false);
-    setShowPreviewModal(false);
-  };
-
-  const filteredDocuments = documents.filter(doc => {
-    if (selectedFilter !== 'all' && doc.status !== selectedFilter) return false;
-    if (searchQuery && !doc.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
+  const filteredStudents = expedientes.filter(student => {
+    const fullName = `${student.Nombre} ${student.Apellidos}`.toLowerCase();
+    const matricula = student.Matricula?.toLowerCase() || '';
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = fullName.includes(searchLower) || matricula.includes(searchLower);
+    const matchesNivel = shouldShowStudent(student.Nivel || 'Universidad');
+    
+    return matchesSearch && matchesNivel;
   });
 
-  const handleActionClick = (e: React.MouseEvent, action: () => void) => {
-    e.stopPropagation();
-    action();
+  const handleAprobarDocumento = async (doc: DocumentoEstudiante) => {
+    try {
+      setIsProcessing(true);
+      await DocumentService.aprobarDocumento(doc);
+      
+      // Actualizar la lista de documentos
+      if (selectedStudent && dormitorioId) {
+        const updatedDocs = await DocumentService.getArchivosAlumno(
+          dormitorioId,
+          selectedStudent.Nombre,
+          selectedStudent.Apellidos
+        );
+        setStudentDocuments(updatedDocs);
+        
+        // Actualizar el mapa de documentos
+        const newMap = new Map(expedientesConDocumentos);
+        const key = `${selectedStudent.Nombre}-${selectedStudent.Apellidos}`;
+        newMap.set(key, updatedDocs);
+        setExpedientesConDocumentos(newMap);
+      }
+      
+      alert('Documento aprobado exitosamente');
+    } catch (error) {
+      console.error('Error detallado al aprobar documento:', error);
+      alert('Error al aprobar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowActionsMenu(null);
-      }
-    };
+  const calcularEstadoEstudiante = (documentos: DocumentoEstudiante[] | undefined): 'aprobado' | 'pendiente' | 'rechazado' => {
+    if (!documentos || documentos.length === 0) return 'pendiente';
+    
+    // Si todos los documentos están aprobados
+    if (documentos.every(doc => doc.StatusRevision === 'aprobado')) {
+      return 'aprobado';
+    }
+    
+    // Si hay al menos un documento pendiente
+    if (documentos.some(doc => doc.StatusRevision === 'pendiente')) {
+      return 'pendiente';
+    }
+    
+    return 'rechazado';
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const handleEliminarDocumento = async (doc: DocumentoEstudiante) => {
+    if (!doc.IdLogin || !doc.IdDocumento) {
+      console.error('Faltan datos necesarios:', { IdLogin: doc.IdLogin, IdDocumento: doc.IdDocumento });
+      alert('Error: No se puede eliminar el documento porque faltan datos necesarios');
+      return;
+    }
+
+    if (!confirm('¿Está seguro de eliminar este documento?')) {
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveDocumentId(null); // Cerrar el menú desplegable
+
+      const documentoParaEliminar: DocumentoParaEliminar = {
+        IdLogin: doc.IdLogin,
+        IdDocumento: doc.IdDocumento
+      };
+
+      await DocumentService.eliminarDocumento(documentoParaEliminar);
+
+      // Actualizar la lista de documentos
+      if (selectedStudent && dormitorioId) {
+        const updatedDocs = await DocumentService.getArchivosAlumno(
+          dormitorioId,
+          selectedStudent.Nombre,
+          selectedStudent.Apellidos
+        );
+        setStudentDocuments(updatedDocs);
+        
+        // Actualizar el mapa de documentos
+        const newMap = new Map(expedientesConDocumentos);
+        const key = `${selectedStudent.Nombre}-${selectedStudent.Apellidos}`;
+        newMap.set(key, updatedDocs);
+        setExpedientesConDocumentos(newMap);
+      }
+    } catch (error) {
+      console.error('Error detallado:', error);
+      alert('Error al eliminar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {selectedStudent && (
-        <>
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="bg-yellow-400 rounded-full p-2">
-              <User className="h-6 w-6 text-gray-800" />
-            </div>
-            <div className="flex items-center space-x-3 text-sm">
-              <span className="flex items-center text-gray-600">
-                <GraduationCap className="h-4 w-4 mr-1" />
-                {selectedStudent.id}
-              </span>
-              <span className="flex items-center text-gray-600">
-                <MapPin className="h-4 w-4 mr-1" />
-                {selectedStudent.dormitory}
-              </span>
-            </div>
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center space-x-4">
+        <div className="bg-yellow-400 rounded-lg p-3">
+          <FileText className="h-6 w-6 text-gray-800" />
           </div>
-        </>
-      )}
-
-      {!selectedStudent && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Documentos Estudiantiles</h1>
-              <p className="text-gray-600 dark:text-gray-400">Gestión y seguimiento de documentación requerida</p>
+          <h1 className="text-2xl font-semibold">Gestión de Documentos</h1>
+          <p className="text-gray-600">Administra y supervisa los documentos requeridos de los estudiantes</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border dark:border-gray-700">
-                <p className="text-gray-600 dark:text-gray-400 text-sm">{stat.label}</p>
-                <div className="flex items-end justify-between mt-2">
-                  <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stat.value}</p>
-                  <p className="text-green-600 dark:text-green-400 text-sm">{stat.change}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            <div className="p-4 border-b dark:border-gray-700">
-              <div className="flex items-center space-x-4 mb-4">
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
                 <button 
-                  onClick={() => setSelectedFilter('all')}
-                  className={`px-4 py-2 ${
-                    selectedFilter === 'all' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                onClick={() => handleStatusChange('all')}
+                className={`px-4 py-2 rounded-lg ${
+                  selectedStatus === 'all' 
+                    ? 'bg-yellow-100 text-yellow-800' 
+                    : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   Todos
                 </button>
                 <button 
-                  onClick={() => setSelectedFilter('pending')}
-                  className={`px-4 py-2 ${
-                    selectedFilter === 'pending' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                onClick={() => handleStatusChange('pendiente')}
+                className={`px-4 py-2 rounded-lg ${
+                  selectedStatus === 'pendiente' 
+                    ? 'bg-yellow-100 text-yellow-800' 
+                    : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   Pendientes
                 </button>
                 <button 
-                  onClick={() => setSelectedFilter('approved')}
-                  className={`px-4 py-2 ${
-                    selectedFilter === 'approved' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                onClick={() => handleStatusChange('aprobado')}
+                className={`px-4 py-2 rounded-lg ${
+                  selectedStatus === 'aprobado' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   Aprobados
                 </button>
               </div>
-              <div className="flex justify-between items-center">
+          </div>
+
+          <div className="flex items-center space-x-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
                   <input
                     type="text"
-                    placeholder="Buscar por nombre o matrícula..."
-                    className="pl-10 w-96 px-4 py-2 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    placeholder="Buscar estudiante por nombre o matrícula..."
+                    className="pl-10 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <button className="flex items-center space-x-2 px-4 py-2 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <Filter size={16} className="text-gray-600 dark:text-gray-400" />
-                  <span className="text-gray-600 dark:text-gray-400">Filtros</span>
+              </div>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          )}
+
+          {!selectedStudent && !isLoading && (
+            <div className="mt-4">
+              {filteredStudents.map((student) => {
+                const documents = expedientesConDocumentos.get(`${student.Nombre}-${student.Apellidos}`);
+                const status = calcularEstadoEstudiante(documents);
+                
+                return (
+                  <button
+                    key={`${student.Nombre}-${student.Apellidos}`}
+                    onClick={() => handleStudentSelect(student)}
+                    className="w-full text-left p-4 hover:bg-gray-50 border-b last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-yellow-400 rounded-full p-2">
+                          <User className="h-5 w-5 text-gray-800" />
+                        </div>
+                        <div>
+                          <span className="font-medium">
+                            {`${student.Nombre} ${student.Apellidos}`}
+                          </span>
+                          <p className="text-sm text-gray-500">
+                            Matrícula: {student.Matricula || 'No disponible'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs ${
+                        status === 'aprobado' 
+                          ? 'bg-green-100 text-green-800'
+                          : status === 'pendiente'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {searchError && (
+            <div className="text-center py-12">
+              <p className="text-red-500">{searchError}</p>
+            </div>
+          )}
+        </div>
+
+        {selectedStudent && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+              <button
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentDocuments([]);
+                    setSearchQuery('');
+                    setSearchError(null);
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  ← Volver
                 </button>
+                <div className="flex items-center space-x-3">
+                  <div className="bg-yellow-400 rounded-full p-2">
+                    <User className="h-6 w-6 text-gray-800" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold">{`${selectedStudent.Nombre} ${selectedStudent.Apellidos}`}</h2>
+                    <p className="text-sm text-gray-500">Matrícula: {selectedStudent.Matricula || 'No disponible'}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="p-4 space-y-4">
-              {filteredDocuments.map((doc) => (
-                <div key={doc.id} className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        {documentIcons[doc.icon]}
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-white">{doc.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{doc.fileName}</p>
-                      </div>
-                      {getStatusBadge(doc.status)}
-                    </div>
-                    <div className="relative">
-                      <button 
-                        onClick={(e) => handleActionClick(e, () => setShowActionsMenu(showActionsMenu === doc.id ? null : doc.id))}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            {/* Filtrar documentos según el estado seleccionado */}
+            {(() => {
+              let documentosFiltrados = studentDocuments;
+              if (selectedStatus !== 'all') {
+                documentosFiltrados = studentDocuments.filter(doc => doc.StatusRevision.toLowerCase() === selectedStatus);
+              }
+              if (documentosFiltrados.length > 0) {
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {documentosFiltrados.map((doc) => (
+                      <div 
+                        key={`${doc.id}-${doc.TipoDocumento}`}
+                        className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
-                        <MoreVertical size={20} />
-                      </button>
-                      
-                      {showActionsMenu === doc.id && (
-                        <div ref={menuRef} className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-1 z-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-gray-50 rounded-lg">
+                              {documentIcons[doc.TipoDocumento as keyof typeof documentIcons] || 
+                               <FileText className="h-6 w-6 text-gray-600" />}
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-gray-900">{doc.TipoDocumento}</h3>
+                              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                                <Calendar className="h-4 w-4" />
+                                <span>{new Date(doc.FechaSubida).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            doc.StatusRevision === 'aprobado'
+                              ? 'bg-green-100 text-green-800'
+                              : doc.StatusRevision === 'pendiente'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {doc.StatusRevision.charAt(0).toUpperCase() + doc.StatusRevision.slice(1)}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex items-center justify-end space-x-2">
+                          {(() => {
+                            const esPendiente = doc.StatusRevision?.toLowerCase() === 'pendiente';
+                            
+                            return esPendiente ? (
+                              <>
+                                {doc.id ? (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setActiveDocumentId(activeDocumentId === doc.id ? null : doc.id)}
+                                      className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                                    >
+                                      <span>Acciones</span>
+                                      <ChevronDown size={16} />
+                                    </button>
+                                    
+                                    {activeDocumentId === doc.id && (
+                                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAprobarDocumento(doc);
+                                            setActiveDocumentId(null);
+                                          }}
+                                          disabled={isProcessing}
+                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 w-full"
+                                        >
+                                          <Check size={16} />
+                                          <span>Aprobar</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('Botón de eliminar clickeado');
+                                            handleEliminarDocumento(doc);
+                                          }}
+                                          disabled={isProcessing}
+                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"
+                                        >
+                                          <X size={16} />
+                                          <span>{isProcessing ? 'Eliminando...' : 'Eliminar'}</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-500">
+                                    Error: ID de documento no disponible
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">
+                                {doc.StatusRevision === 'aprobado' ? 'Documento aprobado' : 'Documento rechazado'}
+                              </span>
+                            );
+                          })()}
                           <button
-                            onClick={(e) => handleActionClick(e, () => handlePreview(doc))}
-                            className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={() => handleDocumentClick(doc)}
+                            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                           >
-                            <Eye className="h-4 w-4 mr-2 text-gray-600 dark:text-gray-400" />
-                            <span className="text-gray-700 dark:text-gray-300">Ver documento</span>
+                            <Eye size={16} />
+                            <span>Previsualizar</span>
                           </button>
-                          
                           <button
-                            onClick={(e) => handleActionClick(e, () => handleDownload(doc))}
-                            className="w-full px-4 py-2 text-left flex items-center hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={() => downloadDocument(doc)}
+                            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
                           >
-                            <Download className="h-4 w-4 mr-2 text-gray-600 dark:text-gray-400" />
-                            <span className="text-gray-700 dark:text-gray-300">Descargar</span>
-                          </button>
-
-                          {doc.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={(e) => handleActionClick(e, () => handleApprove(doc))}
-                                className="w-full px-4 py-2 text-left flex items-center hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400"
-                              >
-                                <Check className="h-4 w-4 mr-2" />
-                                <span>Aprobar documento</span>
-                              </button>
-
-                              <button
-                                onClick={(e) => {
-                                  setSelectedDocument(doc);
-                                  setShowRejectModal(true);
-                                  setShowActionsMenu(null);
-                                }}
-                                className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                <span>Rechazar documento</span>
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            onClick={(e) => handleActionClick(e, () => handleDelete(doc.id))}
-                            className="w-full px-4 py-2 text-left flex items-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            <span>Eliminar documento</span>
+                            <Download size={16} />
+                            <span>Descargar</span>
                           </button>
                         </div>
-                      )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="text-center py-12">
+                    <div className="bg-gray-100 rounded-full p-3 w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                      <FileWarning className="h-6 w-6 text-gray-600" />
                     </div>
+                    <h3 className="text-lg font-medium text-gray-900">No hay documentos</h3>
+                    <p className="text-gray-500 mt-1">Este estudiante aún no tiene documentos cargados</p>
                   </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                    <span>{doc.author} • {doc.studentId}</span>
-                    <span className="mx-2">•</span>
-                    <span>{doc.uploadDate}</span>
-                    <span className="mx-2">•</span>
-                    <span>{doc.size}</span>
-                  </div>
-                  {doc.description && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      {doc.description}
-                    </p>
-                  )}
-                  {doc.status === 'rejected' && doc.rejectionReason && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                      Motivo de rechazo: {doc.rejectionReason}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
+                );
+              }
+            })()}
           </div>
+        )}
         </div>
-      )}
 
-      {showPreviewModal && selectedDocument && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
-            <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  {documentIcons[selectedDocument.icon]}
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedDocument.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedDocument.fileName}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPreviewModal(false)}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-hidden relative">
-              <div className="absolute inset-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                <div 
-                  style={{ 
-                    transform: `scale(${previewScale})`,
-                    transition: 'transform 0.2s ease-in-out'
-                  }}
-                  className="bg-white dark:bg-gray-800 shadow-lg rounded-lg w-[800px] h-[1000px] flex items-center justify-center"
-                >
-                  <p className="text-gray-500 dark:text-gray-400">Vista previa del documento - Página {currentPage}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={handleZoomOut}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                      disabled={previewScale <= 0.5}
-                    >
-                      <ZoomOut size={20} className="text-gray-600 dark:text-gray-400" />
-                    </button>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {Math.round(previewScale * 100)}%
-                    </span>
-                    <button
-                      onClick={handleZoomIn}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                      disabled={previewScale >= 2}
-                    >
-                      <ZoomIn size={20} className="text-gray-600 dark:text-gray-400" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={handlePrevPage}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                      disabled={currentPage <= 1}
-                    >
-                      <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
-                    </button>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Página {currentPage} de {totalPages}
-                    </span>
-                    <button
-                      onClick={handleNextPage}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                      disabled={currentPage >= totalPages}
-                    >
-                      <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleDownload(selectedDocument)}
-                    className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center"
-                  >
-                    <Download size={20} className="mr-2" />
-                    Descargar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showRejectModal && selectedDocument && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rechazar Documento</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Por favor, indique el motivo por el cual se rechaza el documento "{selectedDocument.name}"
-            </p>
-            <textarea
-              className="w-full border dark:border-gray-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              rows={4}
-              placeholder="Ingrese el motivo del rechazo..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-            />
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => {
-                  setShowRejectModal(false);
-                  setRejectionReason('');
-                }}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleReject(selectedDocument)}
-                className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600"
-              >
-                Rechazar
-              </button>
-            </div>
-          </div>
-        </div>
+      {selectedDocument && (
+        <DocumentViewer
+          url={selectedDocument.Archivo}
+          title={selectedDocument.TipoDocumento}
+          onClose={() => setSelectedDocument(null)}
+        />
       )}
     </div>
   );

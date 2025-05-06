@@ -16,16 +16,29 @@ function AppRoutes() {
 
   const getDashboardPath = () => {
     const tipoUser = localStorage.getItem('tipoUser');
-    const nivelAcademico = localStorage.getItem('nivelAcademico');
+    console.log('Tipo de usuario:', tipoUser);
     
-    if (tipoUser === 'PRECEPTOR' && nivelAcademico && userData) {
+    if (tipoUser === 'PRECEPTOR' && userData) {
       const data = userData.Data || userData.data;
+      console.log('Datos del usuario:', data);
+      
       if (data?.employee && data.employee.length > 0) {
-        const sexo = data.employee[0].SEXO;
-        const basePath = `/dashboard/${nivelAcademico.toLowerCase()}-${sexo.toLowerCase()}`;
+        const sexo = data.employee[0].SEXO.toLowerCase();
+        const departamento = data.employee[0].DEPARTAMENTO.toUpperCase();
+        let nivel = departamento === 'H.V.N.U' ? 'universitario' : 'nivel-medio';
+        
+        console.log('Construyendo ruta:', {
+          sexo,
+          departamento,
+          nivel
+        });
+        
+        const basePath = `/dashboard/${nivel}-${sexo}`;
         return `${basePath}/salidas`;
       }
     }
+    
+    console.log('Redirigiendo a ruta por defecto /dashboard');
     return '/dashboard';
   };
 

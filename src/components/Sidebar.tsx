@@ -8,12 +8,15 @@ const Sidebar = () => {
   const location = useLocation();
   const { userData } = useAuth();
   const tipoUser = localStorage.getItem('tipoUser');
-  const nivelAcademico = localStorage.getItem('nivelAcademico');
-  const sexo = userData?.Data?.employee?.[0]?.SEXO || userData?.data?.employee?.[0]?.SEXO;
+  const data = userData?.Data || userData?.data;
+  const employee = data?.employee?.[0];
 
   const getBasePath = () => {
-    if (tipoUser === 'PRECEPTOR' && nivelAcademico && sexo) {
-      return `/dashboard/${nivelAcademico.toLowerCase()}-${sexo.toLowerCase()}`;
+    if (tipoUser === 'PRECEPTOR' && employee) {
+      const sexo = employee.SEXO.toLowerCase();
+      const departamento = employee.DEPARTAMENTO.toUpperCase();
+      const nivel = departamento === 'H.V.N.U' ? 'universitario' : 'nivel-medio';
+      return `/dashboard/${nivel}-${sexo}`;
     }
     return '/dashboard';
   };
@@ -55,7 +58,7 @@ const Sidebar = () => {
       <nav>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname.includes(item.path);
           return (
             <Link
               key={item.path}
