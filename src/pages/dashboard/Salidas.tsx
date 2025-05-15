@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { DoorClosed, Search, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DoorClosed, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { DashboardProps } from '../../types/dashboard';
+import { getStatsSalidas, getSalidasAlumnos } from '../../services/SalidasService';
+import { useAuth } from '../../context/AuthContext';
+import { getTutorInfo, TutorInfo } from '../../services/AlumnoService';
+import { useLocation } from 'react-router-dom';
 
 type EstadoSalida = 'pendiente' | 'aprobada' | 'rechazada';
 
@@ -17,32 +21,46 @@ const Salidas: React.FC<DashboardProps> = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('todos');
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [tutorInfo, setTutorInfo] = useState<{ [matricula: string]: TutorInfo | null }>({});
+  const { userData } = useAuth();
+  const location = useLocation();
 
-  const stats = [
-    { label: 'Salidas Pendientes', value: 5, change: '+2', color: 'text-yellow-600 dark:text-yellow-400' },
-    { label: 'Salidas Aprobadas', value: 12, change: '+8', color: 'text-green-600 dark:text-green-400' },
-    { label: 'Salidas Rechazadas', value: 3, change: '-1', color: 'text-red-600 dark:text-red-400' },
-    { label: 'Total del Mes', value: 20, change: '+15%', color: 'text-blue-600 dark:text-blue-400' }
-  ];
+  // Estado para las tarjetas de estadísticas
+  const [stats, setStats] = useState([
+    { label: 'Salidas Pendientes', value: 0 },
+    { label: 'Salidas Aprobadas', value: 0 },
+    { label: 'Salidas Rechazadas', value: 0 },
+    { label: 'Totales', value: 0 }
+  ]);
 
-  const salidas: SalidaItem[] = [
-    {
-      estudiante: 'Juan Pérez',
-      matricula: '2024001',
-      tipo: 'Salida a casa',
-      salida: '2024-03-15 15:30',
-      retorno: '2024-03-17 18:00',
-      estado: 'pendiente'
-    },
-    {
-      estudiante: 'María González',
-      matricula: '2024002',
-      tipo: 'Salida al pueblo',
-      salida: '2024-03-16 10:00',
-      retorno: '2024-03-16 14:00',
-      estado: 'aprobada'
+  const [salidas, setSalidas] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const data = userData?.Data || userData?.data;
+  const empleado = data?.employee?.[0];
+  const esCoordinacion = empleado?.ID_DEPARATAMENTO === 351;
+
+  useEffect(() => {
+    const matricula = empleado?.MATRICULA;
+    if (!matricula) return;
+    getStatsSalidas(String(matricula)).then((statsData) => {
+      setStats([
+        { label: 'Salidas Pendientes', value: statsData.Pendientes || 0 },
+        { label: 'Salidas Aprobadas', value: statsData.Aprobadas || 0 },
+        { label: 'Salidas Rechazadas', value: statsData.Rechazadas || 0 },
+        { label: 'Totales', value: statsData.Total || 0 }
+      ]);
+    });
+    getSalidasAlumnos(String(matricula)).then(setSalidas);
+  }, [userData]);
+
+  useEffect(() => {
+    if (location.state && location.state.status) {
+      setSelectedStatus(location.state.status);
     }
-  ];
+  }, [location.state]);
 
   const getStatusStyle = (status: EstadoSalida) => {
     const styles: Record<EstadoSalida, string> = {
@@ -63,12 +81,51 @@ const Salidas: React.FC<DashboardProps> = () => {
   };
 
   const filteredSalidas = salidas.filter(salida => {
-    const matchesSearch = salida.estudiante.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         salida.matricula.includes(searchQuery);
-    const matchesDate = !selectedDate || salida.salida.includes(selectedDate);
-    const matchesStatus = selectedStatus === 'todos' || salida.estado === selectedStatus;
+    const nombreCompleto = `${salida.Nombre} ${salida.Apellidos}`.toLowerCase();
+    const matchesSearch = nombreCompleto.includes(searchQuery.toLowerCase()) ||
+                          (salida.Matricula && salida.Matricula.includes(searchQuery));
+    const matchesDate = !selectedDate || (salida.FechaSalida && salida.FechaSalida.includes(selectedDate));
+    const matchesStatus = selectedStatus === 'todos' || salida.StatusPermission?.toLowerCase() === selectedStatus;
     return matchesSearch && matchesDate && matchesStatus;
   });
+
+  // Calcular los elementos a mostrar según la página
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentSalidas = filteredSalidas.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSalidas.length / itemsPerPage);
+
+  // Cambiar de página
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  // Resetear a la página 1 si cambia el filtro
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDate, selectedStatus]);
+
+  const handleRowClick = async (index: number, matricula: string) => {
+    setExpandedIndex(expandedIndex === index ? null : index);
+    if (!tutorInfo[matricula]) {
+      const info = await getTutorInfo(matricula);
+      setTutorInfo(prev => ({ ...prev, [matricula]: info }));
+    }
+  };
+
+  const getBasePath = () => {
+    if (esCoordinacion) {
+      return '/dashboard';
+    }
+    if (empleado && empleado.SEXO && empleado.DEPARTAMENTO) {
+      const sexo = empleado.SEXO.toLowerCase();
+      const departamento = empleado.DEPARTAMENTO.toUpperCase();
+      const nivel = departamento === 'H.V.N.U' ? 'universitario' : 'nivel-medio';
+      return `/dashboard/${nivel}-${sexo}`;
+    }
+    return '/dashboard';
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -82,21 +139,16 @@ const Salidas: React.FC<DashboardProps> = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-lg p-4 border dark:border-gray-700">
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.label}</span>
-                <span className={stat.color}>{stat.change}</span>
-              </div>
-              <span className="text-2xl font-semibold text-gray-900 dark:text-white mt-2">{stat.value}</span>
-            </div>
+          <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.label}</span>
+            <span className="text-3xl font-bold mt-2 block text-gray-900 dark:text-white">{stat.value}</span>
           </div>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-4 space-y-4">
           <div className="flex items-center space-x-4">
             <div className="flex-1 relative">
@@ -158,34 +210,147 @@ const Salidas: React.FC<DashboardProps> = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredSalidas.map((salida, index) => (
-                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {salida.estudiante}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {salida.matricula}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {salida.tipo}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {salida.salida}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {salida.retorno}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle(salida.estado)}`}>
-                          {getStatusText(salida.estado)}
-                        </span>
-                      </td>
-                    </tr>
+                  {currentSalidas.map((salida, index) => (
+                    <React.Fragment key={index}>
+                      <tr
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors duration-150"
+                        onClick={() => handleRowClick(index, salida.Matricula)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          <div className="flex items-center space-x-2">
+                            {expandedIndex === index ? (
+                              <ChevronUp className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span>{salida.Nombre}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {salida.Matricula}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {salida.Descripcion}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(salida.FechaSalida).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(salida.FechaRegreso).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle(salida.StatusPermission?.toLowerCase())}`}>
+                            {getStatusText(salida.StatusPermission?.toLowerCase())}
+                          </span>
+                        </td>
+                      </tr>
+                      {expandedIndex === index && (
+                        <tr>
+                          <td colSpan={6} className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-gray-900 dark:text-white">Detalles de la Salida</h4>
+                                <div className="space-y-1">
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Motivo:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">{salida.Motivo || 'No especificado'}</span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">{salida.Observaciones || 'No hay observaciones'}</span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Fecha solicitada:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                      {salida.FechaSolicitada ? new Date(salida.FechaSolicitada).toLocaleString() : 'No disponible'}
+                                    </span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Fecha de salida:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                      {salida.FechaSalida ? new Date(salida.FechaSalida).toLocaleString() : 'No disponible'}
+                                    </span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Fecha de regreso:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                      {salida.FechaRegreso ? new Date(salida.FechaRegreso).toLocaleString() : 'No disponible'}
+                                    </span>
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-gray-900 dark:text-white">Datos del Estudiante</h4>
+                                <div className="space-y-1">
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Nombre completo:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">{salida.Nombre} {salida.Apellidos}</span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Correo:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">{salida.Correo || 'No disponible'}</span>
+                                  </p>
+                                  <p className="text-sm">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Celular:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">{salida.Celular || 'No disponible'}</span>
+                                  </p>
+                                </div>
+                                {tutorInfo[salida.Matricula] && (
+                                  <div className="space-y-2 mt-4">
+                                    <h4 className="font-medium text-gray-900 dark:text-white">Información del Tutor</h4>
+                                    <div className="space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">Nombre:</span>{' '}
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          {tutorInfo[salida.Matricula]?.nombre} {tutorInfo[salida.Matricula]?.apellidos}
+                                        </span>
+                                      </p>
+                                      <p className="text-sm">
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">Teléfono:</span>{' '}
+                                        <span className="text-gray-600 dark:text-gray-400">{tutorInfo[salida.Matricula]?.telefono}</span>
+                                      </p>
+                                      <p className="text-sm">
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">Móvil:</span>{' '}
+                                        <span className="text-gray-600 dark:text-gray-400">{tutorInfo[salida.Matricula]?.movil}</span>
+                                      </p>
+                                      <p className="text-sm">
+                                        <span className="font-medium text-gray-700 dark:text-gray-300">Email:</span>{' '}
+                                        <span className="text-gray-600 dark:text-gray-400">{tutorInfo[salida.Matricula]?.email}</span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Controles de paginación */}
+      <div className="flex justify-between items-center mt-4">
+        <span className="text-gray-600 dark:text-gray-400 text-sm">
+          Mostrando {filteredSalidas.length === 0 ? 0 : indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredSalidas.length)} de {filteredSalidas.length} resultados
+        </span>
+        <div className="flex items-center space-x-2">
+          <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700'}`}>Anterior</button>
+          {(() => {
+            const pages = [];
+            if (currentPage > 1) pages.push(currentPage - 1);
+            pages.push(currentPage);
+            if (currentPage < totalPages) pages.push(currentPage + 1);
+            return pages.map(page => (
+              <button key={page} onClick={() => goToPage(page)} className={`px-3 py-1 rounded ${currentPage === page ? 'bg-gray-900 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700'}`}>{page}</button>
+            ));
+          })()}
+          <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className={`px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700'}`}>Siguiente</button>
         </div>
       </div>
     </div>

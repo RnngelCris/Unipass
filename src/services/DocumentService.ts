@@ -67,12 +67,15 @@ export class DocumentService {
   static async getArchivosAlumno(
     dormitorio: number,
     nombre: string,
-    apellidos: string
+    apellidos: string,
+    matricula?: string
   ): Promise<DocumentoEstudiante[]> {
     try {
-      const response = await axios.get(
-        `${API_URL}/getArchivos/${dormitorio}/${encodeURIComponent(nombre)}/${encodeURIComponent(apellidos)}`
-      );
+      let url = `${API_URL}/getArchivos/${dormitorio}/${encodeURIComponent(nombre)}/${encodeURIComponent(apellidos)}`;
+      if (matricula) {
+        url += `/${matricula}`;
+      }
+      const response = await axios.get(url);
       console.log('Respuesta del servidor (getArchivosAlumno):', response.data);
       
       // Normalizar los datos y guardar todos los campos relevantes
@@ -136,66 +139,15 @@ export class DocumentService {
     }
   }
 
-  /*static async eliminarDocumento(idLogin: number, idDocumento: number): Promise<void> {
+  static async getExpedientesGlobal(): Promise<Expediente[]> {
     try {
-      const url = `https://unipass.isdapps.uk/doctosMul/${idLogin}`;
-      const data = { IdDocumento: idDocumento };
-      
-      console.log('=== INICIO DE ELIMINACIÓN DE DOCUMENTO ===');
-      console.log('URL:', url);
-      console.log('Datos a enviar:', data);
-
-      // Configuración de axios
-      const config = {
-        method: 'delete',
-        url: url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        data: data
-      };
-
-      console.log('Configuración de la petición:', config);
-
-      // Realizar la petición
-      const response = await axios(config);
-
-      console.log('=== RESPUESTA DEL SERVIDOR ===');
-      console.log('Status:', response.status);
-      console.log('Headers:', response.headers);
-      console.log('Data:', response.data);
-
-      if (response.status !== 200) {
-        throw new Error(`Error del servidor: ${response.status}`);
-      }
-
-      if (response.data.message !== 'DATO ELIMINADO') {
-        throw new Error('Error inesperado al eliminar el documento');
-      }
-
-      console.log('=== DOCUMENTO ELIMINADO EXITOSAMENTE ===');
+      const response = await axios.get(`${API_URL}/getExpediente/5`);
       return response.data;
     } catch (error) {
-      console.error('=== ERROR EN LA ELIMINACIÓN ===');
-      if (axios.isAxiosError(error)) {
-        console.error('Detalles del error:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-          config: {
-            url: error.config?.url,
-            method: error.config?.method,
-            data: error.config?.data,
-            headers: error.config?.headers
-          }
-        });
-      } else {
-        console.error('Error no relacionado con axios:', error);
-      }
-      throw new Error('No se pudo eliminar el documento');
+      console.error('Error en getExpedientesGlobal:', error);
+      throw error;
     }
-  }*/
+  }
 
 }
 

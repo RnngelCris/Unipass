@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Filter, Eye, Download, FileText, Check, X, 
   ScrollText, FileCheck, FilePlus, FileWarning, User,
@@ -31,46 +31,112 @@ const Documentos = () => {
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [filteredExpedientes, setFilteredExpedientes] = useState<Expediente[]>([]);
   const [dormitorioId, setDormitorioId] = useState<number | null>(null);
-  const [expedientesConDocumentos, setExpedientesConDocumentos] = useState<Map<string, DocumentoEstudiante[]>>
-    (new Map());
+  const [expedientesConDocumentos, setExpedientesConDocumentos] = useState<Map<string, DocumentoEstudiante[]>>(new Map());
   const [selectedDocument, setSelectedDocument] = useState<DocumentoEstudiante | null>(null);
   const [activeDocumentId, setActiveDocumentId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [stats, setStats] = useState([
+    { label: 'Documentos Pendientes', value: 0 },
+    { label: 'Documentos Aprobados', value: 0 },
+    { label: 'Total de Documentos', value: 0 },
+    { label: 'Tasa de Aprobación', value: '0' }
+  ]);
+
+  const data = userData?.Data || userData?.data;
+  const empleado = data?.employee?.[0];
+  const esCoordinacion = empleado?.ID_DEPARATAMENTO === 351;
+
+  // Obtener estadísticas globales del preceptor al cargar la página
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      try {
+        const data = userData?.Data || userData?.data;
+        const matriculaPreceptor = data?.employee?.[0]?.MATRICULA;
+        if (!matriculaPreceptor) return;
+        const response = await axios.get(`https://unipass.isdapps.uk/dashboardDocumentos/${matriculaPreceptor}`);
+        const statsData = Array.isArray(response.data) ? response.data[0] : response.data;
+        const total = statsData.Total || 0;
+        const aprobados = statsData.Aprobado || 0;
+        const pendientes = statsData.Pendiente || 0;
+        const tasa = total > 0 ? Math.round((aprobados / total) * 100) : 0;
+        setStats([
+          { label: 'Documentos Pendientes', value: pendientes },
+          { label: 'Documentos Aprobados', value: aprobados },
+          { label: 'Total de Documentos', value: total },
+          { label: 'Tasa de Aprobación', value: tasa > 0 ? `${tasa}%` : '0' }
+        ]);
+      } catch (error) {
+        console.error('Error al obtener estadísticas globales:', error);
+      }
+    };
+    fetchGlobalStats();
+  }, [userData]);
+
+  const fetchStats = async (matricula: string) => {
+    try {
+      const response = await axios.get(`https://unipass.isdapps.uk/dashboardPermission/${matricula}`);
+      const data = response.data;
+      setStats([
+        { label: 'Documentos Pendientes', value: data.Pendientes },
+        { label: 'Documentos Aprobados', value: data.Aprobadas },
+        { label: 'Total de Documentos', value: data.Total },
+        { label: 'Tasa de Aprobación', value: data.Total > 0 ? `${Math.round((data.Aprobadas / data.Total) * 100)}%` : '0%' }
+      ]);
+    } catch (error) {
+      console.error('Error al obtener estadísticas:', error);
+    }
+  };
 
   useEffect(() => {
-    const initializeData = async () => {
+    const fetchData = async () => {
       try {
-        // Obtener el ID del dormitorio del localStorage
-        const dormitorioId = localStorage.getItem('idDormitorio');
-        if (!dormitorioId) {
-          console.error('No se encontró el ID del dormitorio');
-          return;
+        if (esCoordinacion) {
+          // Obtener todos los expedientes globales
+          const expedientesData = await DocumentService.getExpedientesGlobal();
+          setExpedientes(expedientesData);
+          // Obtener documentos para cada expediente usando matrícula, nombre y apellidos
+          const documentosMap = new Map<string, DocumentoEstudiante[]>();
+          for (const expediente of expedientesData) {
+            const docs = await DocumentService.getArchivosAlumno(
+              5, // 5 es el id global para coordinación
+              expediente.Nombre,
+              expediente.Apellidos,
+              esCoordinacion ? expediente.Matricula : undefined
+            );
+            documentosMap.set(`${expediente.Nombre}-${expediente.Apellidos}`, docs);
+          }
+          setExpedientesConDocumentos(documentosMap);
+          filterExpedientes('', 'all', expedientesData, documentosMap);
+        } else {
+          // Lógica actual por dormitorio
+          const dormitorioId = localStorage.getItem('idDormitorio');
+          if (!dormitorioId) {
+            console.error('No se encontró el ID del dormitorio');
+            return;
+          }
+          setDormitorioId(Number(dormitorioId));
+          const expedientesData = await DocumentService.getExpedientesPorDormitorio(Number(dormitorioId));
+          setExpedientes(expedientesData);
+          // Obtener documentos para cada expediente
+          const documentosMap = new Map<string, DocumentoEstudiante[]>();
+          for (const expediente of expedientesData) {
+            const docs = await DocumentService.getArchivosAlumno(
+              Number(dormitorioId),
+              expediente.Nombre,
+              expediente.Apellidos,
+              esCoordinacion ? expediente.Matricula : undefined
+            );
+            documentosMap.set(`${expediente.Nombre}-${expediente.Apellidos}`, docs);
+          }
+          setExpedientesConDocumentos(documentosMap);
+          filterExpedientes('', 'all', expedientesData, documentosMap);
         }
-        
-        setDormitorioId(Number(dormitorioId));
-        const expedientesData = await DocumentService.getExpedientesPorDormitorio(Number(dormitorioId));
-        setExpedientes(expedientesData);
-        
-        // Obtener documentos para cada expediente
-        const documentosMap = new Map<string, DocumentoEstudiante[]>();
-        for (const expediente of expedientesData) {
-          const docs = await DocumentService.getArchivosAlumno(
-            Number(dormitorioId),
-            expediente.Nombre,
-            expediente.Apellidos
-          );
-          documentosMap.set(`${expediente.Nombre}-${expediente.Apellidos}`, docs);
-        }
-        setExpedientesConDocumentos(documentosMap);
-        
-        // Aplicar filtro inicial
-        filterExpedientes('', 'all', expedientesData, documentosMap);
       } catch (error) {
         console.error('Error al inicializar datos:', error);
       }
     };
-
-    initializeData();
-  }, []);
+    fetchData();
+  }, [userData, esCoordinacion]);
 
   const getExpedienteStatus = (documentos: DocumentoEstudiante[]) => {
     if (!documentos || documentos.length === 0) return 'pendiente';
@@ -97,8 +163,12 @@ const Documentos = () => {
     // Filtrar por búsqueda si hay query
     if (query.trim()) {
       filtered = filtered.filter(expediente => {
-        const nombreCompleto = `${expediente.Nombre} ${expediente.Apellidos}`;
-        return nombreCompleto.toLowerCase().includes(query.toLowerCase());
+        const nombreCompleto = `${expediente.Nombre} ${expediente.Apellidos}`.toLowerCase();
+        const matricula = expediente.Matricula?.toLowerCase() || '';
+        return (
+          nombreCompleto.includes(query.toLowerCase()) ||
+          matricula.includes(query.toLowerCase())
+        );
       });
     }
 
@@ -115,16 +185,18 @@ const Documentos = () => {
   };
 
   const handleStudentSelect = async (expediente: Expediente) => {
-    if (!dormitorioId) return;
+    const id = esCoordinacion ? 5 : dormitorioId;
+    if (!id) return;
 
     setIsLoading(true);
     setSearchError(null);
-    
+    if (esCoordinacion) setDormitorioId(5); // Asegura que el estado tenga el id correcto para coordinación
     try {
       const documents = await DocumentService.getArchivosAlumno(
-        dormitorioId,
+        Number(id),
         expediente.Nombre,
-        expediente.Apellidos
+        expediente.Apellidos,
+        esCoordinacion ? expediente.Matricula : undefined
       );
       
       if (documents && documents.length > 0) {
@@ -158,6 +230,7 @@ const Documentos = () => {
     link.target = '_blank';
     link.download = `${doc.TipoDocumento}${doc.Archivo.substring(doc.Archivo.lastIndexOf('.'))}`;
     document.body.appendChild(link);
+    console.log('URL solicitada:', `${API_URL}${doc.Archivo}`);
     link.click();
     document.body.removeChild(link);
   };
@@ -168,6 +241,8 @@ const Documentos = () => {
     switch (estado.toLowerCase()) {
       case 'aprobado':
         return 'bg-green-100 text-green-800';
+      case 'aprobado_con_pendientes':
+        return 'bg-blue-100 text-blue-800';
       case 'rechazado':
         return 'bg-red-100 text-red-800';
       case 'pendiente':
@@ -220,9 +295,10 @@ const Documentos = () => {
       // Actualizar la lista de documentos
       if (selectedStudent && dormitorioId) {
         const updatedDocs = await DocumentService.getArchivosAlumno(
-          dormitorioId,
+          Number(dormitorioId),
           selectedStudent.Nombre,
-          selectedStudent.Apellidos
+          selectedStudent.Apellidos,
+          esCoordinacion ? selectedStudent.Matricula : undefined
         );
         setStudentDocuments(updatedDocs);
         
@@ -242,20 +318,21 @@ const Documentos = () => {
     }
   };
 
-  const calcularEstadoEstudiante = (documentos: DocumentoEstudiante[] | undefined): 'aprobado' | 'pendiente' | 'rechazado' => {
+  const calcularEstadoEstudiante = (documentos: DocumentoEstudiante[] | undefined): 'aprobado' | 'aprobado_con_pendientes' | 'pendiente' | 'rechazado' => {
     if (!documentos || documentos.length === 0) return 'pendiente';
-    
-    // Si todos los documentos están aprobados
-    if (documentos.every(doc => doc.StatusRevision === 'aprobado')) {
-      return 'aprobado';
-    }
-    
-    // Si hay al menos un documento pendiente
-    if (documentos.some(doc => doc.StatusRevision === 'pendiente')) {
-      return 'pendiente';
-    }
-    
-    return 'rechazado';
+    const docsClave = ['Convenio de salidas', 'Reglamento HVU', 'INE Tutor'];
+    let aprobados = 0;
+    let totalClave = 0;
+    docsClave.forEach(tipo => {
+      const doc = documentos.find(d => d.TipoDocumento === tipo);
+      if (doc) {
+        totalClave++;
+        if (doc.StatusRevision === 'aprobado') aprobados++;
+      }
+    });
+    if (aprobados === 3) return 'aprobado';
+    if (aprobados > 0) return 'aprobado_con_pendientes';
+    return 'pendiente';
   };
 
   const handleEliminarDocumento = async (doc: DocumentoEstudiante) => {
@@ -283,9 +360,10 @@ const Documentos = () => {
       // Actualizar la lista de documentos
       if (selectedStudent && dormitorioId) {
         const updatedDocs = await DocumentService.getArchivosAlumno(
-          dormitorioId,
+          Number(dormitorioId),
           selectedStudent.Nombre,
-          selectedStudent.Apellidos
+          selectedStudent.Apellidos,
+          esCoordinacion ? selectedStudent.Matricula : undefined
         );
         setStudentDocuments(updatedDocs);
         
@@ -308,23 +386,33 @@ const Documentos = () => {
       <div className="flex items-center space-x-4">
         <div className="bg-yellow-400 rounded-lg p-3">
           <FileText className="h-6 w-6 text-gray-800" />
-          </div>
-            <div>
-          <h1 className="text-2xl font-semibold">Gestión de Documentos</h1>
-          <p className="text-gray-600">Administra y supervisa los documentos requeridos de los estudiantes</p>
-            </div>
-          </div>
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Gestión de Documentos</h1>
+          <p className="text-gray-600 dark:text-gray-400">Administra y supervisa los documentos requeridos de los estudiantes</p>
+        </div>
+      </div>
 
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-4 border-b">
+      {/* Tarjetas de estadísticas generales debajo del título */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {stats.map((stat, idx) => (
+          <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col items-start border border-gray-200 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400 text-lg mb-2">{stat.label}</span>
+            <span className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
                 <button 
                 onClick={() => handleStatusChange('all')}
                 className={`px-4 py-2 rounded-lg ${
                   selectedStatus === 'all' 
-                    ? 'bg-yellow-100 text-yellow-800' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' 
+                    : 'text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   Todos
@@ -333,18 +421,28 @@ const Documentos = () => {
                 onClick={() => handleStatusChange('pendiente')}
                 className={`px-4 py-2 rounded-lg ${
                   selectedStatus === 'pendiente' 
-                    ? 'bg-yellow-100 text-yellow-800' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' 
+                    : 'text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   Pendientes
                 </button>
                 <button 
+                onClick={() => handleStatusChange('aprobado_con_pendientes')}
+                className={`px-4 py-2 rounded-lg ${
+                  selectedStatus === 'aprobado_con_pendientes' 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' 
+                    : 'text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Aprobados con pendientes
+                </button>
+                <button 
                 onClick={() => handleStatusChange('aprobado')}
                 className={`px-4 py-2 rounded-lg ${
                   selectedStatus === 'aprobado' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                    : 'text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   Aprobados
@@ -354,11 +452,11 @@ const Documentos = () => {
 
           <div className="flex items-center space-x-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
+                  <Search className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" size={20} />
                   <input
                     type="text"
                     placeholder="Buscar estudiante por nombre o matrícula..."
-                    className="pl-10 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                    className="pl-10 w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -373,7 +471,7 @@ const Documentos = () => {
 
           {!selectedStudent && !isLoading && (
             <div className="mt-4">
-              {filteredStudents.map((student) => {
+              {filteredExpedientes.map((student) => {
                 const documents = expedientesConDocumentos.get(`${student.Nombre}-${student.Apellidos}`);
                 const status = calcularEstadoEstudiante(documents);
                 
@@ -381,7 +479,7 @@ const Documentos = () => {
                   <button
                     key={`${student.Nombre}-${student.Apellidos}`}
                     onClick={() => handleStudentSelect(student)}
-                    className="w-full text-left p-4 hover:bg-gray-50 border-b last:border-b-0"
+                    className="w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 bg-white dark:bg-gray-800"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -389,22 +487,24 @@ const Documentos = () => {
                           <User className="h-5 w-5 text-gray-800" />
                         </div>
                         <div>
-                          <span className="font-medium">
+                          <span className="font-medium text-gray-900 dark:text-white">
                             {`${student.Nombre} ${student.Apellidos}`}
                           </span>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
                             Matrícula: {student.Matricula || 'No disponible'}
                           </p>
                         </div>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs ${
                         status === 'aprobado' 
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                          : status === 'aprobado_con_pendientes'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                           : status === 'pendiente'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                       }`}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {status === 'aprobado_con_pendientes' ? 'Aprobado con pendientes' : status.charAt(0).toUpperCase() + status.slice(1)}
                       </span>
                     </div>
                   </button>
@@ -440,7 +540,7 @@ const Documentos = () => {
                     <User className="h-6 w-6 text-gray-800" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold">{`${selectedStudent.Nombre} ${selectedStudent.Apellidos}`}</h2>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{`${selectedStudent.Nombre} ${selectedStudent.Apellidos}`}</h2>
                     <p className="text-sm text-gray-500">Matrícula: {selectedStudent.Matricula || 'No disponible'}</p>
                   </div>
                 </div>
@@ -459,17 +559,17 @@ const Documentos = () => {
                     {documentosFiltrados.map((doc) => (
                       <div 
                         key={`${doc.id}-${doc.TipoDocumento}`}
-                        className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
+                        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-gray-50 rounded-lg">
+                            <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                               {documentIcons[doc.TipoDocumento as keyof typeof documentIcons] || 
-                               <FileText className="h-6 w-6 text-gray-600" />}
+                               <FileText className="h-6 w-6 text-gray-600 dark:text-gray-400" />}
                             </div>
                             <div>
-                              <h3 className="font-medium text-gray-900">{doc.TipoDocumento}</h3>
-                              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                              <h3 className="font-medium text-gray-900 dark:text-white">{doc.TipoDocumento}</h3>
+                              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                                 <Calendar className="h-4 w-4" />
                                 <span>{new Date(doc.FechaSubida).toLocaleDateString()}</span>
                               </div>
@@ -477,10 +577,10 @@ const Documentos = () => {
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             doc.StatusRevision === 'aprobado'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                               : doc.StatusRevision === 'pendiente'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                           }`}>
                             {doc.StatusRevision.charAt(0).toUpperCase() + doc.StatusRevision.slice(1)}
                           </span>
@@ -495,14 +595,14 @@ const Documentos = () => {
                                   <div className="relative">
                                     <button
                                       onClick={() => setActiveDocumentId(activeDocumentId === doc.id ? null : doc.id)}
-                                      className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                                      className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-200 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                     >
                                       <span>Acciones</span>
                                       <ChevronDown size={16} />
                                     </button>
                                     
                                     {activeDocumentId === doc.id && (
-                                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-700">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -510,7 +610,7 @@ const Documentos = () => {
                                             setActiveDocumentId(null);
                                           }}
                                           disabled={isProcessing}
-                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 w-full"
+                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 w-full"
                                         >
                                           <Check size={16} />
                                           <span>Aprobar</span>
@@ -523,7 +623,7 @@ const Documentos = () => {
                                             handleEliminarDocumento(doc);
                                           }}
                                           disabled={isProcessing}
-                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"
+                                          className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 w-full"
                                         >
                                           <X size={16} />
                                           <span>{isProcessing ? 'Eliminando...' : 'Eliminar'}</span>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { DoorClosed, FileText, Bell, FolderOpen, Users, ClipboardList } from 'lucide-react';
+import { DoorClosed, FileText, Bell, FolderOpen, Users, ClipboardList, Home } from 'lucide-react';
 import logoMenu from '../assets/images/Logo-menu.png';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,8 +10,12 @@ const Sidebar = () => {
   const tipoUser = localStorage.getItem('tipoUser');
   const data = userData?.Data || userData?.data;
   const employee = data?.employee?.[0];
+  const isCoordinacion = employee?.ID_DEPARATAMENTO === 351;
 
   const getBasePath = () => {
+    if (isCoordinacion) {
+      return '/dashboard';
+    }
     if (tipoUser === 'PRECEPTOR' && employee) {
       const sexo = employee.SEXO.toLowerCase();
       const departamento = employee.DEPARTAMENTO.toUpperCase();
@@ -24,8 +28,18 @@ const Sidebar = () => {
   const getMenuItems = () => {
     const basePath = getBasePath();
     const baseMenuItems = [
+      { icon: Home, text: 'Inicio', path: '/dashboard' },
       { icon: DoorClosed, text: 'Salidas', path: `${basePath}/salidas` },
     ];
+
+    if (isCoordinacion) {
+      // Coordinación ve todo igual que preceptor pero sin restricciones
+      return [
+        ...baseMenuItems,
+        { icon: FileText, text: 'Documentos', path: `${basePath}/documentos` },
+        { icon: FolderOpen, text: 'Expediente', path: `${basePath}/expediente` },
+      ];
+    }
 
     switch (tipoUser) {
       case 'PRECEPTOR':
@@ -58,7 +72,9 @@ const Sidebar = () => {
       <nav>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname.includes(item.path);
+          const isActive = item.path === '/dashboard'
+            ? location.pathname === '/dashboard' || location.pathname === '/dashboard/'
+            : location.pathname.includes(item.path);
           return (
             <Link
               key={item.path}
